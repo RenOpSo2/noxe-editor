@@ -38,7 +38,8 @@ void term_init() {
     struct termios term;
     ioctl(STDIN_FILENO, TCGETS, &term);
     term.c_lflag &= ~(ICANON | ECHO);
-    term.c_cc[VMIN] = 1;
-    term.c_cc[VTIME] = 0;
+    term.c_cc[VMIN] = 0;
+    term.c_cc[VTIME] = 1;
     ioctl(STDIN_FILENO, TCSETS, &term);
+    write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }

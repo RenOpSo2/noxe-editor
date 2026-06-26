@@ -8,12 +8,14 @@ enum result file_read(struct nodes* nodes, struct node* dst, const char* path) {
     if (fd == -1) {
         return err;
     }
-    char buffer[1];
-    uint32_t bytes_read;
-    while ((bytes_read = read(fd, buffer, 1)) > 0) {
-        nodes_insert(nodes, dst, buffer[0]);
+    char buffer[4096];
+    int bytes_read;
+    while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
+        for (int i = 0; i < bytes_read; i++) {
+            nodes_insert(nodes, dst, buffer[i]);
+        }
     }
-    if ((int)bytes_read == -1) {
+    if (bytes_read == -1) {
         close(fd);
         return err;
     }
@@ -30,10 +32,20 @@ enum result file_write(const char* path, struct node* src) {
     while (itr->prev != NULL) {
         itr = itr->prev;
     }
-    char buffer[1];
+    char buffer[4096];
+    int i = 0;
     for (; itr->next != NULL; itr = itr->next) {
-        buffer[0] = itr->ch;
-        if (write(fd, buffer, 1) != 1) {
+        buffer[i++] = itr->ch;
+        if (i == sizeof(buffer)) {
+            if (write(fd, buffer, i) != i) {
+                close(fd);
+                return err;
+            }
+            i = 0;
+        }
+    }
+    if (i > 0) {
+        if (write(fd, buffer, i) != i) {
             close(fd);
             return err;
         }
