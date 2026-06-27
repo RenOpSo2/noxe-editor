@@ -9,6 +9,7 @@
 
 void editor_init(struct global* global, const char* filepath) {
     term_init();
+    draw_init();
 
     static char arena_mem[arena_capacity];
     global->arena = arena_init(arena_mem, sizeof(arena_mem));

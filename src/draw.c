@@ -3,8 +3,17 @@
 #include <unistd.h>
 #include <string.h>
 
-static void draw_clear() {
-    write(STDOUT_FILENO, "\x1b[?25l\x1b[H", 10);
+// Safe compile-time length for string literals — never miscounts again.
+#define ESC(s) (s), (sizeof(s) - 1)
+
+void draw_init() {
+    // Enter alternate screen, hide cursor, clear screen.
+    write(STDOUT_FILENO, ESC("\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H"));
+}
+
+static void draw_cursor_home() {
+    // Reset all attributes THEN move to home — ensures no color bleeds.
+    write(STDOUT_FILENO, ESC("\x1b[0m\x1b[H"));
 }
 
 static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
@@ -17,6 +26,7 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     int start_phase = 0;
     int start_idx = idx + 1;
 
+    // Walk backward from cursor to find the scroll viewport start.
     while (p) {
         if (phase == 0) {
             while (idx >= 0) {
@@ -49,6 +59,9 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     start_p = pgb->head; start_phase = 0; start_idx = 0;
 
 draw:;
+    // Ensure text area uses the terminal's own default colors (transparent).
+    write(STDOUT_FILENO, ESC("\x1b[0m"));
+
     uint32_t current_line = 0;
     p = start_p; phase = start_phase; idx = start_idx;
 
@@ -57,21 +70,28 @@ draw:;
             while (idx < (int)p->gap_start) {
                 if (current_line >= size_y) goto finish;
                 char ch = p->data[idx];
-                if (ch == '\n') { write(STDOUT_FILENO, "\x1b[K", 3); current_line++; }
+                if (ch == '\n') {
+                    // Erase rest of line then newline.
+                    write(STDOUT_FILENO, ESC("\x1b[K"));
+                    current_line++;
+                }
                 write(STDOUT_FILENO, &ch, 1);
                 idx++;
             }
             phase = 1;
             idx = (int)p->gap_end;
+            // Draw block cursor at gap position (reverse video, single space).
             if (p == pgb->active_page && current_line < size_y) {
-                // Draw a subtle block cursor
-                write(STDOUT_FILENO, "\x1b[7m \x1b[0m", 8);
+                write(STDOUT_FILENO, ESC("\x1b[7m \x1b[0m"));
             }
         } else {
             while (idx < PAGE_CAPACITY) {
                 if (current_line >= size_y) goto finish;
                 char ch = p->data[idx];
-                if (ch == '\n') { write(STDOUT_FILENO, "\x1b[K", 3); current_line++; }
+                if (ch == '\n') {
+                    write(STDOUT_FILENO, ESC("\x1b[K"));
+                    current_line++;
+                }
                 write(STDOUT_FILENO, &ch, 1);
                 idx++;
             }
@@ -81,28 +101,28 @@ draw:;
     }
 
 finish:
-    write(STDOUT_FILENO, "\x1b[K", 3);
+    // Erase current line then fill remaining rows with blank erased lines.
+    write(STDOUT_FILENO, ESC("\x1b[K"));
     for (; current_line < size_y; current_line++) {
-        write(STDOUT_FILENO, "\n\x1b[K", 4);
+        write(STDOUT_FILENO, ESC("\n\x1b[K"));
     }
 }
 
 static void draw_status(struct global* global) {
-    // Full-width dark status bar
-    write(STDOUT_FILENO, "\x1b[48;5;235m\x1b[38;5;250m", 21);
+    // Status bar: dark bg, light fg.
+    write(STDOUT_FILENO, ESC("\x1b[48;5;235m\x1b[38;5;250m"));
 
-    // Left: filename
-    write(STDOUT_FILENO, " noxe | ", 8);
+    write(STDOUT_FILENO, ESC(" noxe | "));
     if (global->filepath[0] != '\0') {
         write(STDOUT_FILENO, global->filepath, strlen(global->filepath));
     } else {
-        write(STDOUT_FILENO, "[No file]", 9);
+        write(STDOUT_FILENO, ESC("[No file]"));
     }
 
-    // Hint
-    write(STDOUT_FILENO, "  \x1b[38;5;244mCtrl+S: Save  Ctrl+Q: Quit", 37);
+    // Dim hints.
+    write(STDOUT_FILENO, ESC("  \x1b[38;5;244mCtrl+S: Save  Ctrl+Q: Quit"));
 
-    // Message (if any)
+    // Flash message in yellow (if any).
     uint32_t msg_len = 0;
     struct page* mp = global->msg.head;
     while (mp) {
@@ -110,7 +130,7 @@ static void draw_status(struct global* global) {
         mp = mp->next;
     }
     if (msg_len > 0) {
-        write(STDOUT_FILENO, "  \x1b[38;5;220m", 12);
+        write(STDOUT_FILENO, ESC("  \x1b[38;5;220m"));
         struct page* p = global->msg.head;
         while (p) {
             if (p->gap_start > 0) write(STDOUT_FILENO, p->data, p->gap_start);
@@ -120,16 +140,18 @@ static void draw_status(struct global* global) {
         }
     }
 
-    write(STDOUT_FILENO, "\x1b[0m\x1b[K\n", 8);
+    // Reset + erase rest of status line + newline.
+    write(STDOUT_FILENO, ESC("\x1b[0m\x1b[K\n"));
 }
 
 void draw_update(struct global* global) {
-    draw_clear();
+    draw_cursor_home();
     draw_status(global);
     draw_text(&global->text, global->term.ws.ws_row - 2);
-    write(STDOUT_FILENO, "\x1b[?25h", 6);
+    write(STDOUT_FILENO, ESC("\x1b[?25h")); // show cursor
 }
 
 void draw_deinit() {
-    write(STDOUT_FILENO, "\x1b[?1049l\x1b[?25h", 14);
+    // Exit alternate screen, show cursor, restore terminal.
+    write(STDOUT_FILENO, ESC("\x1b[0m\x1b[?1049l\x1b[?25h"));
 }

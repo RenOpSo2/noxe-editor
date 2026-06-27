@@ -23,15 +23,17 @@ uint32_t term_read(char* dst) {
     return read(STDIN_FILENO, dst, term_capacity);
 }
 
+void term_update(struct term* term) {
+    ioctl(STDIN_FILENO, TIOCGWINSZ, &term->ws);
+}
+
 void term_deinit() {
+    write(STDOUT_FILENO, "\x1b[0m", 4);
+    write(STDOUT_FILENO, "\x1b[?1049l", 8);
     struct termios term;
     ioctl(STDIN_FILENO, TCGETS, &term);
     term.c_lflag |= (ICANON | ECHO);
     ioctl(STDIN_FILENO, TCSETS, &term);
-}
-
-void term_update(struct term* term) {
-    ioctl(STDIN_FILENO, TIOCGWINSZ, &term->ws);
 }
 
 void term_init() {
@@ -42,4 +44,6 @@ void term_init() {
     term.c_cc[VTIME] = 1;
     ioctl(STDIN_FILENO, TCSETS, &term);
     write(STDOUT_FILENO, "\x1b[?1049h", 8);
+    write(STDOUT_FILENO, "\x1b[0m", 4);
+    write(STDOUT_FILENO, "\x1b[37m", 5);
 }
