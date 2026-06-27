@@ -12,8 +12,9 @@ BINDIR    = bin
 TARGET    = $(BINDIR)/noxe
 
 # Source files
-SRCS      = $(wildcard $(SRCDIR)/*.c)
-OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(SRCS))
+SRCS      = $(wildcard $(SRCDIR)/*.c) libmemory/arena.c
+OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(wildcard $(SRCDIR)/*.c)) \
+            $(BUILDDIR)/libmemory/arena.o
 DEPS      = $(OBJS:.o=.d)
 
 # Phony targets
@@ -34,6 +35,12 @@ $(TARGET): $(OBJS)
 
 # Compile objects with dependency tracking
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILDDIR)/libmemory/%.o: libmemory/%.c
+	@mkdir -p $(dir $@)
 	@echo "Compiling $<..."
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 

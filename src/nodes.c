@@ -2,14 +2,19 @@
 
 void nodes_free(struct nodes* nodes, struct node* this) {
     this->prev = nodes->passive_selector;
-    nodes->passive_selector->next = this;
+    if (nodes->passive_selector != NULL) {
+        nodes->passive_selector->next = this;
+    }
     nodes->passive_selector = this;
 }
 
 struct node* nodes_allocate(struct nodes* nodes) {
-    struct node* this = nodes->passive_selector;
-    nodes->passive_selector = nodes->passive_selector->prev;
-    return this;
+    if (nodes->passive_selector != NULL) {
+        struct node* this = nodes->passive_selector;
+        nodes->passive_selector = nodes->passive_selector->prev;
+        return this;
+    }
+    return arena_new(&nodes->arena, struct node);
 }
 
 struct node* nodes_insert(struct nodes* nodes, struct node* next, char ch) {
@@ -102,10 +107,9 @@ void nodes_to_str(char* dst, struct node* src) {
 }
 
 void nodes_init(struct nodes* nodes) {
-    nodes->passive_selector = nodes->data;
-    for (uint32_t i = 0; i < nodes_capacity - 1; i++) {
-        nodes_free(nodes, &nodes->data[i + 1]);
-    }
+    static char arena_mem[nodes_capacity * sizeof(struct node)];
+    nodes->arena = arena_init(arena_mem, sizeof(arena_mem));
+    nodes->passive_selector = NULL;
     nodes->insert_selector = nodes_allocate(nodes);
     nodes->insert_selector->ch = '\0';
     nodes->insert_selector->prev = NULL;

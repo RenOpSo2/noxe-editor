@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/ioctl.h>  // struct winsize butuh ini
 #include <stddef.h>
+#include "../libmemory/arena.h"
 
 #define nodes_capacity (1 << 18)
 #define term_capacity (1 << 16)
@@ -31,7 +32,7 @@ struct node {
 };
 
 struct nodes {
-    struct node data[nodes_capacity];
+    Arena arena;
     struct node* passive_selector;
     struct node* insert_selector;
     struct node* cmd_selector;
