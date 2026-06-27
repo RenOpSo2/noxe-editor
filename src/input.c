@@ -5,37 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static void input_normal_h(struct nodes* nodes) {
-    if (nodes->insert_selector->prev != NULL) {
-        nodes->insert_selector = nodes->insert_selector->prev;
-    }
-}
-
-static void input_normal_l(struct nodes* nodes) {
-    if (nodes->insert_selector->next != NULL) {
-        nodes->insert_selector = nodes->insert_selector->next;
-    }
-}
-
-static void input_normal_j(struct nodes* nodes) {
-    uint32_t x = nodes_line_left(nodes->insert_selector);
-    nodes->insert_selector = nodes_line_rbegin(nodes->insert_selector);
-    input_normal_l(nodes);
-    for (uint32_t i = 0; i < x && nodes->insert_selector != NULL && nodes->insert_selector->ch != '\n'; i++) {
-        input_normal_l(nodes);
-    }
-}
-
-static void input_normal_k(struct nodes* nodes) {
-    uint32_t x = nodes_line_left(nodes->insert_selector);
-    nodes->insert_selector = nodes_line_begin(nodes->insert_selector);
-    input_normal_h(nodes);
-    nodes->insert_selector = nodes_line_begin(nodes->insert_selector);
-    for (uint32_t i = 0; i < x && nodes->insert_selector != NULL && nodes->insert_selector->ch != '\n'; i++) {
-        input_normal_l(nodes);
-    }
-}
-
 static void input_normal(struct global* global, char ch) {
     switch (ch) {
         case 'i':
@@ -45,16 +14,16 @@ static void input_normal(struct global* global, char ch) {
             global->mode = mode_cmd;
             return;
         case 'h':
-            input_normal_h(&global->nodes);
+            gb_move_left(&global->text);
             return;
         case 'l':
-            input_normal_l(&global->nodes);
+            gb_move_right(&global->text);
             return;
         case 'j':
-            input_normal_j(&global->nodes);
+            gb_move_down(&global->text);
             return;
         case 'k':
-            input_normal_k(&global->nodes);
+            gb_move_up(&global->text);
             return;
         default:
             return;
@@ -67,8 +36,8 @@ static enum result input_cmd(struct global* global, char ch) {
             global->mode = mode_normal;
             return ok;
         case '\n':
-            if (cmd_exec(global, global->nodes.cmd_selector) == ok) {
-                nodes_clear(&global->nodes, global->nodes.cmd_selector);
+            if (cmd_exec(global, &global->cmd) == ok) {
+                gb_clear(&global->cmd);
                 global->mode = mode_normal;
                 return ok;
             } else {
@@ -76,12 +45,10 @@ static enum result input_cmd(struct global* global, char ch) {
             }
         case '\b':
         case 127:
-            if (global->nodes.cmd_selector->prev != NULL) {
-                nodes_delete(&global->nodes, global->nodes.cmd_selector->prev);
-            }
+            gb_delete(&global->cmd);
             return ok;
         default:
-            nodes_insert(&global->nodes, global->nodes.cmd_selector, ch);
+            gb_insert(&global->cmd, ch, &global->arena);
             return ok;
     }
 }
@@ -93,12 +60,10 @@ static void input_insert(struct global* global, char ch) {
             return;
         case '\b':
         case 127:
-            if (global->nodes.insert_selector->prev != NULL) {
-                nodes_delete(&global->nodes, global->nodes.insert_selector->prev);
-            }
+            gb_delete(&global->text);
             return;
         default:
-            nodes_insert(&global->nodes, global->nodes.insert_selector, ch);
+            gb_insert(&global->text, ch, &global->arena);
             return;
     }
 }

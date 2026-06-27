@@ -1,125 +1,170 @@
 #include "nodes.h"
+#include <string.h>
 
-void nodes_free(struct nodes* nodes, struct node* this) {
-    this->prev = nodes->passive_selector;
-    if (nodes->passive_selector != NULL) {
-        nodes->passive_selector->next = this;
-    }
-    nodes->passive_selector = this;
+void gb_init(struct gap_buffer* gb, uint32_t initial_capacity, Arena* arena) {
+    if (initial_capacity < 64) initial_capacity = 64;
+    gb->data = (char*)arena_alloc_default(arena, initial_capacity);
+    gb->capacity = initial_capacity;
+    gb->gap_start = 0;
+    gb->gap_end = initial_capacity;
 }
 
-struct node* nodes_allocate(struct nodes* nodes) {
-    if (nodes->passive_selector != NULL) {
-        struct node* this = nodes->passive_selector;
-        nodes->passive_selector = nodes->passive_selector->prev;
-        return this;
+static void gb_grow(struct gap_buffer* gb, Arena* arena) {
+    uint32_t new_cap = gb->capacity * 2;
+    char* new_data = (char*)arena_alloc_default(arena, new_cap);
+    
+    // Copy before gap
+    if (gb->gap_start > 0) {
+        memcpy(new_data, gb->data, gb->gap_start);
     }
-    return arena_new(&nodes->arena, struct node);
+    
+    // Copy after gap
+    uint32_t after_gap_len = gb->capacity - gb->gap_end;
+    uint32_t new_gap_end = new_cap - after_gap_len;
+    if (after_gap_len > 0) {
+        memcpy(new_data + new_gap_end, gb->data + gb->gap_end, after_gap_len);
+    }
+    
+    gb->data = new_data;
+    gb->capacity = new_cap;
+    gb->gap_end = new_gap_end;
 }
 
-struct node* nodes_insert(struct nodes* nodes, struct node* next, char ch) {
-    struct node* this = nodes_allocate(nodes);
-    struct node* prev = next->prev;
-    this->ch = ch;
-    this->next = next;
-    this->prev = prev;
-    next->prev = this;
-    if (prev != NULL) {
-        prev->next = this;
+void gb_insert(struct gap_buffer* gb, char ch, Arena* arena) {
+    if (gb->gap_start == gb->gap_end) {
+        gb_grow(gb, arena);
     }
-    return this;
+    gb->data[gb->gap_start++] = ch;
 }
 
-void nodes_delete(struct nodes* nodes, struct node* this) {
-    struct node* next = this->next;
-    struct node* prev = this->prev;
-    nodes_free(nodes, this);
-    if (next != NULL) {
-        next->prev = prev;
-    }
-    if (prev != NULL) {
-        prev->next = next;
+void gb_delete(struct gap_buffer* gb) {
+    if (gb->gap_start > 0) {
+        gb->gap_start--;
     }
 }
 
-void nodes_clear(struct nodes* nodes, struct node* this) {
-    struct node* itr = this;
-    while (itr->next != NULL) {
-        nodes_delete(nodes, itr->next);
-    }
-    while (itr->prev != NULL) {
-        nodes_delete(nodes, itr->prev);
-    }
-    itr->ch = '\0';
+void gb_clear(struct gap_buffer* gb) {
+    gb->gap_start = 0;
+    gb->gap_end = gb->capacity;
 }
 
-void nodes_insert_str(struct nodes* nodes, struct node* next, const char* src) {
+void gb_insert_str(struct gap_buffer* gb, const char* src, Arena* arena) {
     for (uint32_t i = 0; src[i] != '\0'; i++) {
-        nodes_insert(nodes, next, src[i]);
+        gb_insert(gb, src[i], arena);
     }
 }
 
-void nodes_replace_str(struct nodes* nodes, struct node* this, const char* src) {
-    nodes_clear(nodes, this);
-    nodes_insert_str(nodes, this, src);
+void gb_replace_str(struct gap_buffer* gb, const char* src, Arena* arena) {
+    gb_clear(gb);
+    gb_insert_str(gb, src, arena);
 }
 
-uint32_t nodes_line_left(struct node* this) {
-    struct node* itr = this->prev;
+void gb_to_str(char* dst, struct gap_buffer* gb) {
     uint32_t i = 0;
-    while (itr != NULL && itr->ch != '\n') {
-        itr = itr->prev;
-        i++;
+    for (uint32_t j = 0; j < gb->gap_start; j++) {
+        dst[i++] = gb->data[j];
     }
-    return i;
+    for (uint32_t j = gb->gap_end; j < gb->capacity; j++) {
+        dst[i++] = gb->data[j];
+    }
+    dst[i] = '\0';
 }
 
-struct node* nodes_line_begin(struct node* this) {
-    struct node* itr = this;
-    while (itr->prev != NULL) {
-        if (itr->prev->ch == '\n') {
+void gb_move_left(struct gap_buffer* gb) {
+    if (gb->gap_start > 0) {
+        gb->gap_end--;
+        gb->gap_start--;
+        gb->data[gb->gap_end] = gb->data[gb->gap_start];
+    }
+}
+
+void gb_move_right(struct gap_buffer* gb) {
+    if (gb->gap_end < gb->capacity) {
+        gb->data[gb->gap_start] = gb->data[gb->gap_end];
+        gb->gap_start++;
+        gb->gap_end++;
+    }
+}
+
+
+void gb_move_up(struct gap_buffer* gb) {
+    // Current column
+    uint32_t col = 0;
+    for (int i = gb->gap_start - 1; i >= 0; i--) {
+        if (gb->data[i] == '\n') break;
+        col++;
+    }
+    
+    // Find previous newline
+    int prev_nl = -1;
+    for (int i = gb->gap_start - 1; i >= 0; i--) {
+        if (gb->data[i] == '\n') {
+            prev_nl = i;
             break;
         }
-        itr = itr->prev;
     }
-    return itr;
+    
+    if (prev_nl == -1) return; // Already on first line
+    
+    // Find start of the line above
+    int start_of_prev = 0;
+    for (int i = prev_nl - 1; i >= 0; i--) {
+        if (gb->data[i] == '\n') {
+            start_of_prev = i + 1;
+            break;
+        }
+    }
+    
+    // Target position
+    int target = start_of_prev + col;
+    if (target > prev_nl) target = prev_nl;
+    
+    while (gb->gap_start > (uint32_t)target) {
+        gb_move_left(gb);
+    }
 }
 
-struct node* nodes_line_rbegin(struct node* this) {
-    struct node* itr = this;
-    while (itr->next != NULL && itr->ch != '\n') {
-        itr = itr->next;
+void gb_move_down(struct gap_buffer* gb) {
+    // Current column
+    uint32_t col = 0;
+    for (int i = gb->gap_start - 1; i >= 0; i--) {
+        if (gb->data[i] == '\n') break;
+        col++;
     }
-    return itr;
-}
-
-void nodes_to_str(char* dst, struct node* src) {
-    struct node* itr = src;
-    uint32_t i;
-    while (itr->prev != NULL) {
-        itr = itr->prev;
+    
+    // Find next newline
+    int next_nl = -1;
+    for (uint32_t i = gb->gap_end; i < gb->capacity; i++) {
+        if (gb->data[i] == '\n') {
+            next_nl = i;
+            break;
+        }
     }
-    for (i = 0; itr != NULL; i++) {
-        dst[i] = itr->ch;
-        itr = itr->next;
+    
+    if (next_nl == -1) {
+        // Move to end of buffer
+        while (gb->gap_end < gb->capacity) gb_move_right(gb);
+        return;
     }
-    dst[i + 1] = '\0';
-}
-
-void nodes_init(struct nodes* nodes) {
-    static char arena_mem[nodes_capacity * sizeof(struct node)];
-    nodes->arena = arena_init(arena_mem, sizeof(arena_mem));
-    nodes->passive_selector = NULL;
-    nodes->insert_selector = nodes_allocate(nodes);
-    nodes->insert_selector->ch = '\0';
-    nodes->insert_selector->prev = NULL;
-    nodes->insert_selector->next = NULL;
-    nodes->cmd_selector = nodes_allocate(nodes);
-    nodes->cmd_selector->ch = '\0';
-    nodes->cmd_selector->prev = NULL;
-    nodes->cmd_selector->next = NULL;
-    nodes->message_selector = nodes_allocate(nodes);
-    nodes->message_selector->ch = '\0';
-    nodes->message_selector->prev = NULL;
-    nodes->message_selector->next = NULL;
+    
+    // Find end of the line below
+    int end_of_next = gb->capacity;
+    for (uint32_t i = next_nl + 1; i < gb->capacity; i++) {
+        if (gb->data[i] == '\n') {
+            end_of_next = i;
+            break;
+        }
+    }
+    
+    int target = next_nl + 1 + col;
+    if (target > end_of_next) target = end_of_next;
+    
+    // Move right until we reach the target
+    // Note target is calculated as index in the full capacity array assuming gap is empty.
+    // Distance to move right: target - next_nl + (distance to next_nl)
+    // Actually, simply count right moves.
+    int target_gap_start = gb->gap_start + (target - gb->gap_end);
+    while (gb->gap_start < (uint32_t)target_gap_start) {
+        gb_move_right(gb);
+    }
 }

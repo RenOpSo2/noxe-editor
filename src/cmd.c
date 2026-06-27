@@ -3,44 +3,48 @@
 #include "nodes.h"
 #include <string.h>
 
-enum result cmd_openfile(struct nodes* nodes, const char* path) {
-    nodes_clear(nodes, nodes->insert_selector);
-    return file_read(nodes, nodes->insert_selector, path);
+enum result cmd_openfile(struct gap_buffer* gb, const char* path, Arena* arena) {
+    gb_clear(gb);
+    return file_read(gb, path, arena);
 }
 
-enum result cmd_savefile(struct nodes* nodes, const char* path) {
-    return file_write(path, nodes->insert_selector);
+enum result cmd_savefile(struct gap_buffer* gb, const char* path) {
+    return file_write(path, gb);
 }
 
-enum result cmd_exec(struct global* global, struct node* this) {
+enum result cmd_exec(struct global* global, struct gap_buffer* cmd_buf) {
     char buf[buf_capacity];
     char* option;
+    gb_to_str(buf, cmd_buf);
+    gb_clear(&global->msg);
+    
     uint32_t i = 0;
-    nodes_to_str(buf, this);
-    nodes_clear(&global->nodes, global->nodes.message_selector);
     while (buf[i] != ' ' && buf[i] != '\0') {
         i++;
     }
-    buf[i++] = '\0';
+    if (buf[i] == ' ') {
+        buf[i++] = '\0';
+    }
     option = buf + i;
+    
     if (strcmp(buf, "exit") == 0 || strcmp(buf, "quit") == 0 || strcmp(buf, "q") == 0) {
         return err;
     } else if (strcmp(buf, "open") == 0) {
-        if (cmd_openfile(&global->nodes, option) == ok) {
-            nodes_replace_str(&global->nodes, global->nodes.message_selector, "open succeeded.");
+        if (cmd_openfile(&global->text, option, &global->arena) == ok) {
+            gb_replace_str(&global->msg, "open succeeded.", &global->arena);
         } else {
-            nodes_replace_str(&global->nodes, global->nodes.message_selector, "open failed.");
+            gb_replace_str(&global->msg, "open failed.", &global->arena);
         }
         return ok;
     } else if (strcmp(buf, "save") == 0) {
-        if (cmd_savefile(&global->nodes, option) == ok) {
-            nodes_replace_str(&global->nodes, global->nodes.message_selector, "save succeeded.");
+        if (cmd_savefile(&global->text, option) == ok) {
+            gb_replace_str(&global->msg, "save succeeded.", &global->arena);
         } else {
-            nodes_replace_str(&global->nodes, global->nodes.message_selector, "save failed.");
+            gb_replace_str(&global->msg, "save failed.", &global->arena);
         }
         return ok;
     } else {
-        nodes_replace_str(&global->nodes, global->nodes.message_selector, "command not found.");
+        gb_replace_str(&global->msg, "command not found.", &global->arena);
         return ok;
     }
 }

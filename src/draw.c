@@ -6,31 +6,48 @@ static void draw_clear() {
     write(STDOUT_FILENO, "\x1b[?25l\x1b[H", 10);
 }
 
-static void draw_text(struct node* this, uint32_t size_y, enum bool is_cursor) {
-    struct node* itr = this;
-    uint32_t i;
-    for (i = 0; itr->prev != NULL && i < size_y / 3 + 1;) {
-        itr = itr->prev;
-        if (itr->ch == '\n') {
-            i++;
+static void draw_text(struct gap_buffer* gb, uint32_t size_y) {
+    int lines = 0;
+    int idx = gb->gap_start - 1;
+    while (idx >= 0) {
+        if (gb->data[idx] == '\n') {
+            lines++;
+            if (lines > (int)size_y / 3) {
+                break;
+            }
         }
+        idx--;
     }
-    if (itr->ch == '\n' && itr->prev != NULL) {
-        itr = itr->next;
-    }
-    for (i = 0; i < size_y && itr != NULL;) {
-        if (itr == this && is_cursor == true) {
-            write(STDOUT_FILENO, "\x1b[7m|\x1b[0m", 9);
-        }
-        if (itr->ch == '\n') {
+    uint32_t line_start = idx + 1;
+
+    uint32_t current_line = 0;
+    
+    for (uint32_t i = line_start; i < gb->gap_start; i++) {
+        if (current_line >= size_y) break;
+        char ch = gb->data[i];
+        if (ch == '\n') {
             write(STDOUT_FILENO, "\x1b[K", 3);
-            i++;
+            current_line++;
         }
-        write(STDOUT_FILENO, &itr->ch, 1);
-        itr = itr->next;
+        write(STDOUT_FILENO, &ch, 1);
     }
+    
+    if (current_line < size_y) {
+        write(STDOUT_FILENO, "\x1b[7m|\x1b[0m", 9);
+    }
+    
+    for (uint32_t i = gb->gap_end; i < gb->capacity; i++) {
+        if (current_line >= size_y) break;
+        char ch = gb->data[i];
+        if (ch == '\n') {
+            write(STDOUT_FILENO, "\x1b[K", 3);
+            current_line++;
+        }
+        write(STDOUT_FILENO, &ch, 1);
+    }
+    
     write(STDOUT_FILENO, "\x1b[K", 3);
-    for (; i < size_y; i++) {
+    for (; current_line < size_y; current_line++) {
         write(STDOUT_FILENO, "\n\x1b[K", 4);
     }
 }
@@ -47,28 +64,40 @@ static void draw_info(enum mode mode) {
     }
 }
 
-static void draw_message(struct node* message_selector) {
-    if (message_selector->prev != NULL) {
+static void draw_message(struct gap_buffer* msg) {
+    if (msg->gap_start > 0 || (msg->capacity - msg->gap_end) > 0) {
         write(STDOUT_FILENO, ", message: [", 12);
-        draw_text(message_selector, 1, false);
+        
+        if (msg->gap_start > 0)
+            write(STDOUT_FILENO, msg->data, msg->gap_start);
+        
+        uint32_t after = msg->capacity - msg->gap_end;
+        if (after > 0)
+            write(STDOUT_FILENO, msg->data + msg->gap_end, after);
+            
         write(STDOUT_FILENO, "]", 1);
     }
 }
 
-static void draw_cmd(struct node* cmd_selector) {
-    if (cmd_selector->prev != NULL) {
+static void draw_cmd(struct gap_buffer* cmd) {
+    if (cmd->gap_start > 0 || (cmd->capacity - cmd->gap_end) > 0) {
         write(STDOUT_FILENO, ", cmd: ", 7);
-        draw_text(cmd_selector, 1, false);
+        if (cmd->gap_start > 0)
+            write(STDOUT_FILENO, cmd->data, cmd->gap_start);
+        
+        uint32_t after = cmd->capacity - cmd->gap_end;
+        if (after > 0)
+            write(STDOUT_FILENO, cmd->data + cmd->gap_end, after);
     }
 }
 
 void draw_update(struct global* global) {
     draw_clear();
     draw_info(global->mode);
-    draw_message(global->nodes.message_selector);
-    draw_cmd(global->nodes.cmd_selector);
+    draw_message(&global->msg);
+    draw_cmd(&global->cmd);
     write(STDOUT_FILENO, "\x1b[K\n", 4);
-    draw_text(global->nodes.insert_selector, global->term.ws.ws_row - 2, true);
+    draw_text(&global->text, global->term.ws.ws_row - 2);
     write(STDOUT_FILENO, "\x1b[?25h", 6);
 }
 

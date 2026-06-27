@@ -2,11 +2,11 @@
 #define GLOBAL_H
 
 #include <stdint.h>
-#include <sys/ioctl.h>  // struct winsize butuh ini
+#include <sys/ioctl.h>
 #include <stddef.h>
 #include "../libmemory/arena.h"
 
-#define nodes_capacity (1 << 18)
+#define arena_capacity (1 << 24) // 16 MB arena
 #define term_capacity (1 << 16)
 #define buf_capacity (1 << 16)
 
@@ -25,18 +25,11 @@ enum mode {
     mode_raw,
 };
 
-struct node {
-    struct node* next;
-    struct node* prev;
-    char ch;
-};
-
-struct nodes {
-    Arena arena;
-    struct node* passive_selector;
-    struct node* insert_selector;
-    struct node* cmd_selector;
-    struct node* message_selector;
+struct gap_buffer {
+    char* data;
+    uint32_t capacity;
+    uint32_t gap_start;
+    uint32_t gap_end;
 };
 
 struct term {
@@ -45,8 +38,11 @@ struct term {
 
 struct global {
     struct term term;
-    struct nodes nodes;
+    struct gap_buffer text;
+    struct gap_buffer cmd;
+    struct gap_buffer msg;
     enum mode mode;
+    Arena arena;
 };
 
 #endif

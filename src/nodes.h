@@ -3,17 +3,18 @@
 
 #include "global.h"
 
-void nodes_init(struct nodes* nodes);
-struct node* nodes_allocate(struct nodes* nodes);
-void nodes_free(struct nodes* nodes, struct node* this);
-struct node* nodes_insert(struct nodes* nodes, struct node* next, char ch);
-void nodes_delete(struct nodes* nodes, struct node* this);
-void nodes_clear(struct nodes* nodes, struct node* this);
-void nodes_insert_str(struct nodes* nodes, struct node* next, const char* src);
-void nodes_replace_str(struct nodes* nodes, struct node* this, const char* src);
-uint32_t nodes_line_left(struct node* this);
-struct node* nodes_line_begin(struct node* this);
-struct node* nodes_line_rbegin(struct node* this);
-void nodes_to_str(char* dst, struct node* src);
+void gb_init(struct gap_buffer* gb, uint32_t initial_capacity, Arena* arena);
+void gb_insert(struct gap_buffer* gb, char ch, Arena* arena);
+void gb_delete(struct gap_buffer* gb);
+void gb_clear(struct gap_buffer* gb);
+void gb_insert_str(struct gap_buffer* gb, const char* src, Arena* arena);
+void gb_replace_str(struct gap_buffer* gb, const char* src, Arena* arena);
+void gb_to_str(char* dst, struct gap_buffer* gb);
+void gb_move_left(struct gap_buffer* gb);
+void gb_move_right(struct gap_buffer* gb);
+void gb_move_up(struct gap_buffer* gb);
+void gb_move_down(struct gap_buffer* gb);
+uint32_t gb_get_line(struct gap_buffer* gb);
+uint32_t gb_get_col(struct gap_buffer* gb);
 
 #endif

@@ -7,7 +7,15 @@
 
 void editor_init(struct global* global) {
     term_init();
-    nodes_init(&global->nodes);
+    
+    static char arena_mem[arena_capacity];
+    global->arena = arena_init(arena_mem, sizeof(arena_mem));
+    
+    gb_init(&global->text, 1024 * 1024, &global->arena);
+    gb_init(&global->cmd, 256, &global->arena);
+    gb_init(&global->msg, 256, &global->arena);
+    
+    global->mode = mode_normal;
 }
 
 void editor_deinit(struct global* global) {
