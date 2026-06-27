@@ -6,9 +6,11 @@
 #include <stddef.h>
 #include "../libmemory/arena.h"
 
-#define arena_capacity (1 << 24) // 16 MB arena
+#define arena_capacity (1 << 24)
 #define term_capacity (1 << 16)
 #define buf_capacity (1 << 16)
+
+#define PAGE_CAPACITY 4096
 
 enum result {
     ok = 0,
@@ -25,11 +27,18 @@ enum mode {
     mode_raw,
 };
 
-struct gap_buffer {
-    char* data;
-    uint32_t capacity;
+struct page {
+    char data[PAGE_CAPACITY];
     uint32_t gap_start;
     uint32_t gap_end;
+    struct page* next;
+    struct page* prev;
+};
+
+struct paged_gap_buffer {
+    struct page* head;
+    struct page* tail;
+    struct page* active_page;
 };
 
 struct term {
@@ -38,9 +47,9 @@ struct term {
 
 struct global {
     struct term term;
-    struct gap_buffer text;
-    struct gap_buffer cmd;
-    struct gap_buffer msg;
+    struct paged_gap_buffer text;
+    struct paged_gap_buffer cmd;
+    struct paged_gap_buffer msg;
     enum mode mode;
     Arena arena;
 };

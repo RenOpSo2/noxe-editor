@@ -14,16 +14,16 @@ static void input_normal(struct global* global, char ch) {
             global->mode = mode_cmd;
             return;
         case 'h':
-            gb_move_left(&global->text);
+            pgb_move_left(&global->text);
             return;
         case 'l':
-            gb_move_right(&global->text);
+            pgb_move_right(&global->text);
             return;
         case 'j':
-            gb_move_down(&global->text);
+            pgb_move_down(&global->text);
             return;
         case 'k':
-            gb_move_up(&global->text);
+            pgb_move_up(&global->text);
             return;
         default:
             return;
@@ -37,7 +37,7 @@ static enum result input_cmd(struct global* global, char ch) {
             return ok;
         case '\n':
             if (cmd_exec(global, &global->cmd) == ok) {
-                gb_clear(&global->cmd);
+                pgb_clear(&global->cmd);
                 global->mode = mode_normal;
                 return ok;
             } else {
@@ -45,10 +45,10 @@ static enum result input_cmd(struct global* global, char ch) {
             }
         case '\b':
         case 127:
-            gb_delete(&global->cmd);
+            pgb_delete(&global->cmd);
             return ok;
         default:
-            gb_insert(&global->cmd, ch, &global->arena);
+            pgb_insert(&global->cmd, ch, &global->arena);
             return ok;
     }
 }
@@ -60,10 +60,10 @@ static void input_insert(struct global* global, char ch) {
             return;
         case '\b':
         case 127:
-            gb_delete(&global->text);
+            pgb_delete(&global->text);
             return;
         default:
-            gb_insert(&global->text, ch, &global->arena);
+            pgb_insert(&global->text, ch, &global->arena);
             return;
     }
 }

@@ -1,170 +1,202 @@
 #include "nodes.h"
 #include <string.h>
 
-void gb_init(struct gap_buffer* gb, uint32_t initial_capacity, Arena* arena) {
-    if (initial_capacity < 64) initial_capacity = 64;
-    gb->data = (char*)arena_alloc_default(arena, initial_capacity);
-    gb->capacity = initial_capacity;
-    gb->gap_start = 0;
-    gb->gap_end = initial_capacity;
+static struct page* page_new(Arena* arena) {
+    struct page* p = arena_cnew(arena, struct page);
+    p->gap_start = 0;
+    p->gap_end = PAGE_CAPACITY;
+    p->next = NULL;
+    p->prev = NULL;
+    return p;
 }
 
-static void gb_grow(struct gap_buffer* gb, Arena* arena) {
-    uint32_t new_cap = gb->capacity * 2;
-    char* new_data = (char*)arena_alloc_default(arena, new_cap);
+void pgb_init(struct paged_gap_buffer* pgb, Arena* arena) {
+    pgb->head = page_new(arena);
+    pgb->tail = pgb->head;
+    pgb->active_page = pgb->head;
+}
+
+static void page_split(struct paged_gap_buffer* pgb, Arena* arena) {
+    struct page* curr = pgb->active_page;
+    struct page* new_page = page_new(arena);
     
-    // Copy before gap
-    if (gb->gap_start > 0) {
-        memcpy(new_data, gb->data, gb->gap_start);
+    uint32_t right_len = PAGE_CAPACITY - curr->gap_end;
+    new_page->gap_end = PAGE_CAPACITY - right_len;
+    
+    if (right_len > 0) {
+        memcpy(new_page->data + new_page->gap_end, curr->data + curr->gap_end, right_len);
     }
     
-    // Copy after gap
-    uint32_t after_gap_len = gb->capacity - gb->gap_end;
-    uint32_t new_gap_end = new_cap - after_gap_len;
-    if (after_gap_len > 0) {
-        memcpy(new_data + new_gap_end, gb->data + gb->gap_end, after_gap_len);
-    }
+    curr->gap_end = PAGE_CAPACITY;
     
-    gb->data = new_data;
-    gb->capacity = new_cap;
-    gb->gap_end = new_gap_end;
+    new_page->prev = curr;
+    new_page->next = curr->next;
+    if (curr->next) curr->next->prev = new_page;
+    else pgb->tail = new_page;
+    curr->next = new_page;
 }
 
-void gb_insert(struct gap_buffer* gb, char ch, Arena* arena) {
-    if (gb->gap_start == gb->gap_end) {
-        gb_grow(gb, arena);
+void pgb_insert(struct paged_gap_buffer* pgb, char ch, Arena* arena) {
+    struct page* p = pgb->active_page;
+    if (p->gap_start == p->gap_end) {
+        page_split(pgb, arena);
+        p = pgb->active_page;
     }
-    gb->data[gb->gap_start++] = ch;
+    p->data[p->gap_start++] = ch;
 }
 
-void gb_delete(struct gap_buffer* gb) {
-    if (gb->gap_start > 0) {
-        gb->gap_start--;
+void pgb_delete(struct paged_gap_buffer* pgb) {
+    struct page* p = pgb->active_page;
+    if (p->gap_start > 0) {
+        p->gap_start--;
+    } else if (p->prev) {
+        pgb->active_page = p->prev;
+        pgb_delete(pgb);
     }
 }
 
-void gb_clear(struct gap_buffer* gb) {
-    gb->gap_start = 0;
-    gb->gap_end = gb->capacity;
+void pgb_clear(struct paged_gap_buffer* pgb) {
+    struct page* p = pgb->head;
+    while (p) {
+        p->gap_start = 0;
+        p->gap_end = PAGE_CAPACITY;
+        p = p->next;
+    }
+    pgb->active_page = pgb->head;
 }
 
-void gb_insert_str(struct gap_buffer* gb, const char* src, Arena* arena) {
+void pgb_insert_str(struct paged_gap_buffer* pgb, const char* src, Arena* arena) {
     for (uint32_t i = 0; src[i] != '\0'; i++) {
-        gb_insert(gb, src[i], arena);
+        pgb_insert(pgb, src[i], arena);
     }
 }
 
-void gb_replace_str(struct gap_buffer* gb, const char* src, Arena* arena) {
-    gb_clear(gb);
-    gb_insert_str(gb, src, arena);
+void pgb_replace_str(struct paged_gap_buffer* pgb, const char* src, Arena* arena) {
+    pgb_clear(pgb);
+    pgb_insert_str(pgb, src, arena);
 }
 
-void gb_to_str(char* dst, struct gap_buffer* gb) {
+void pgb_to_str(char* dst, struct paged_gap_buffer* pgb) {
     uint32_t i = 0;
-    for (uint32_t j = 0; j < gb->gap_start; j++) {
-        dst[i++] = gb->data[j];
-    }
-    for (uint32_t j = gb->gap_end; j < gb->capacity; j++) {
-        dst[i++] = gb->data[j];
+    struct page* p = pgb->head;
+    while (p) {
+        for (uint32_t j = 0; j < p->gap_start; j++) dst[i++] = p->data[j];
+        for (uint32_t j = p->gap_end; j < PAGE_CAPACITY; j++) dst[i++] = p->data[j];
+        p = p->next;
     }
     dst[i] = '\0';
 }
 
-void gb_move_left(struct gap_buffer* gb) {
-    if (gb->gap_start > 0) {
-        gb->gap_end--;
-        gb->gap_start--;
-        gb->data[gb->gap_end] = gb->data[gb->gap_start];
+void pgb_move_left(struct paged_gap_buffer* pgb) {
+    struct page* p = pgb->active_page;
+    if (p->gap_start > 0) {
+        p->gap_end--;
+        p->gap_start--;
+        p->data[p->gap_end] = p->data[p->gap_start];
+    } else if (p->prev) {
+        pgb->active_page = p->prev;
+        p = pgb->active_page;
+        while (p->gap_end < PAGE_CAPACITY) {
+            p->data[p->gap_start++] = p->data[p->gap_end++];
+        }
+        if (p->gap_start > 0) {
+            p->gap_end--;
+            p->gap_start--;
+            p->data[p->gap_end] = p->data[p->gap_start];
+        }
     }
 }
 
-void gb_move_right(struct gap_buffer* gb) {
-    if (gb->gap_end < gb->capacity) {
-        gb->data[gb->gap_start] = gb->data[gb->gap_end];
-        gb->gap_start++;
-        gb->gap_end++;
+void pgb_move_right(struct paged_gap_buffer* pgb) {
+    struct page* p = pgb->active_page;
+    if (p->gap_end < PAGE_CAPACITY) {
+        p->data[p->gap_start++] = p->data[p->gap_end++];
+    } else if (p->next) {
+        pgb->active_page = p->next;
+        p = pgb->active_page;
+        while (p->gap_start > 0) {
+            p->gap_end--;
+            p->gap_start--;
+            p->data[p->gap_end] = p->data[p->gap_start];
+        }
+        if (p->gap_end < PAGE_CAPACITY) {
+            p->data[p->gap_start++] = p->data[p->gap_end++];
+        }
     }
 }
 
-
-void gb_move_up(struct gap_buffer* gb) {
-    // Current column
+void pgb_move_up(struct paged_gap_buffer* pgb) {
     uint32_t col = 0;
-    for (int i = gb->gap_start - 1; i >= 0; i--) {
-        if (gb->data[i] == '\n') break;
+    while (1) {
+        struct page* p = pgb->active_page;
+        if (p->gap_start == 0 && !p->prev) break;
+        pgb_move_left(pgb);
+        p = pgb->active_page;
+        if (p->data[p->gap_start] == '\n') {
+            pgb_move_right(pgb);
+            break;
+        }
         col++;
     }
-    
-    // Find previous newline
-    int prev_nl = -1;
-    for (int i = gb->gap_start - 1; i >= 0; i--) {
-        if (gb->data[i] == '\n') {
-            prev_nl = i;
-            break;
+    if (pgb->active_page->gap_start == 0 && !pgb->active_page->prev) {
+        while (col > 0) {
+            pgb_move_right(pgb);
+            col--;
         }
-    }
-    
-    if (prev_nl == -1) return; // Already on first line
-    
-    // Find start of the line above
-    int start_of_prev = 0;
-    for (int i = prev_nl - 1; i >= 0; i--) {
-        if (gb->data[i] == '\n') {
-            start_of_prev = i + 1;
-            break;
-        }
-    }
-    
-    // Target position
-    int target = start_of_prev + col;
-    if (target > prev_nl) target = prev_nl;
-    
-    while (gb->gap_start > (uint32_t)target) {
-        gb_move_left(gb);
-    }
-}
-
-void gb_move_down(struct gap_buffer* gb) {
-    // Current column
-    uint32_t col = 0;
-    for (int i = gb->gap_start - 1; i >= 0; i--) {
-        if (gb->data[i] == '\n') break;
-        col++;
-    }
-    
-    // Find next newline
-    int next_nl = -1;
-    for (uint32_t i = gb->gap_end; i < gb->capacity; i++) {
-        if (gb->data[i] == '\n') {
-            next_nl = i;
-            break;
-        }
-    }
-    
-    if (next_nl == -1) {
-        // Move to end of buffer
-        while (gb->gap_end < gb->capacity) gb_move_right(gb);
         return;
     }
-    
-    // Find end of the line below
-    int end_of_next = gb->capacity;
-    for (uint32_t i = next_nl + 1; i < gb->capacity; i++) {
-        if (gb->data[i] == '\n') {
-            end_of_next = i;
+    pgb_move_left(pgb);
+    uint32_t prev_line_len = 0;
+    while (1) {
+        struct page* p = pgb->active_page;
+        if (p->gap_start == 0 && !p->prev) break;
+        pgb_move_left(pgb);
+        p = pgb->active_page;
+        if (p->data[p->gap_start] == '\n') {
+            pgb_move_right(pgb);
+            break;
+        }
+        prev_line_len++;
+    }
+    uint32_t target = col < prev_line_len ? col : prev_line_len;
+    for (uint32_t i = 0; i < target; i++) {
+        pgb_move_right(pgb);
+    }
+}
+
+void pgb_move_down(struct paged_gap_buffer* pgb) {
+    uint32_t col = 0;
+    while (1) {
+        struct page* p = pgb->active_page;
+        if (p->gap_start == 0 && !p->prev) break;
+        pgb_move_left(pgb);
+        p = pgb->active_page;
+        if (p->data[p->gap_start] == '\n') {
+            pgb_move_right(pgb);
+            break;
+        }
+        col++;
+    }
+    for (uint32_t i = 0; i < col; i++) {
+        pgb_move_right(pgb);
+    }
+    while (1) {
+        struct page* p = pgb->active_page;
+        if (p->gap_end == PAGE_CAPACITY && !p->next) return;
+        pgb_move_right(pgb);
+        p = pgb->active_page;
+        if (p->data[p->gap_start - 1] == '\n') {
             break;
         }
     }
-    
-    int target = next_nl + 1 + col;
-    if (target > end_of_next) target = end_of_next;
-    
-    // Move right until we reach the target
-    // Note target is calculated as index in the full capacity array assuming gap is empty.
-    // Distance to move right: target - next_nl + (distance to next_nl)
-    // Actually, simply count right moves.
-    int target_gap_start = gb->gap_start + (target - gb->gap_end);
-    while (gb->gap_start < (uint32_t)target_gap_start) {
-        gb_move_right(gb);
+    for (uint32_t i = 0; i < col; i++) {
+        struct page* p = pgb->active_page;
+        if (p->gap_end == PAGE_CAPACITY && !p->next) break;
+        pgb_move_right(pgb);
+        p = pgb->active_page;
+        if (p->data[p->gap_start - 1] == '\n') {
+            pgb_move_left(pgb);
+            break;
+        }
     }
 }
