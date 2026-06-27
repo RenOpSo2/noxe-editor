@@ -11,9 +11,9 @@ BINDIR    = bin
 # Target
 TARGET    = $(BINDIR)/noxe
 
-# Source files
-SRCS      = $(wildcard $(SRCDIR)/*.c) libmemory/arena.c
-OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(wildcard $(SRCDIR)/*.c)) \
+# Source files (exclude cmd.c — removed in favour of Ctrl+S/Q)
+SRCS      = $(filter-out $(SRCDIR)/cmd.c, $(wildcard $(SRCDIR)/*.c)) libmemory/arena.c
+OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(filter-out $(SRCDIR)/cmd.c, $(wildcard $(SRCDIR)/*.c))) \
             $(BUILDDIR)/libmemory/arena.o
 DEPS      = $(OBJS:.o=.d)
 

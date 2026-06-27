@@ -12,6 +12,9 @@
 
 #define PAGE_CAPACITY 4096
 
+// Ctrl+key macros
+#define CTRL_KEY(k) ((k) & 0x1f)
+
 enum result {
     ok = 0,
     err = 1,
@@ -19,12 +22,6 @@ enum result {
 enum bool {
     false = 0,
     true = 1,
-};
-enum mode {
-    mode_normal,
-    mode_insert,
-    mode_cmd,
-    mode_raw,
 };
 
 struct page {
@@ -48,9 +45,8 @@ struct term {
 struct global {
     struct term term;
     struct paged_gap_buffer text;
-    struct paged_gap_buffer cmd;
     struct paged_gap_buffer msg;
-    enum mode mode;
+    char filepath[256];
     Arena arena;
 };
 

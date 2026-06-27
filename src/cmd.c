@@ -17,7 +17,7 @@ enum result cmd_exec(struct global* global, struct paged_gap_buffer* cmd_buf) {
     char* option;
     pgb_to_str(buf, cmd_buf);
     pgb_clear(&global->msg);
-    
+
     uint32_t i = 0;
     while (buf[i] != ' ' && buf[i] != '\0') {
         i++;
@@ -26,7 +26,7 @@ enum result cmd_exec(struct global* global, struct paged_gap_buffer* cmd_buf) {
         buf[i++] = '\0';
     }
     option = buf + i;
-    
+
     if (strcmp(buf, "exit") == 0 || strcmp(buf, "quit") == 0 || strcmp(buf, "q") == 0) {
         return err;
     } else if (strcmp(buf, "open") == 0) {
