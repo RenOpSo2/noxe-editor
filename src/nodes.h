@@ -15,4 +15,11 @@ void pgb_move_right(struct paged_gap_buffer* pgb);
 void pgb_move_up(struct paged_gap_buffer* pgb);
 void pgb_move_down(struct paged_gap_buffer* pgb);
 
+// Selection & clipboard helpers
+uint32_t pgb_cursor_pos(struct paged_gap_buffer* pgb);
+void     pgb_move_to_pos(struct paged_gap_buffer* pgb, uint32_t pos);
+void     pgb_copy_range(struct paged_gap_buffer* dst, struct paged_gap_buffer* src,
+                        uint32_t from, uint32_t to, Arena* arena);
+void     pgb_delete_range(struct paged_gap_buffer* pgb, uint32_t from, uint32_t to);
+
 #endif

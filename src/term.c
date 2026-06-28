@@ -10,6 +10,14 @@
 #define TCGETS 0x5401
 #define TCSETS 0x5402
 
+#define ALT_SCREEN_ON  "\x1b[?1049h"  /* switch to alternate screen bu
+ffer */
+#define RESET_ATTR     "\x1b[0m"      /* reset all text attributes */ 
+#define FG_WHITE       "\x1b[37m"     /* set foreground color to white
+ */
+
+
+
 struct termios {
     unsigned int c_iflag;
     unsigned int c_oflag;
@@ -19,13 +27,16 @@ struct termios {
     unsigned char c_cc[32];
 };
 
+
 uint32_t term_read(char* dst) {
     return read(STDIN_FILENO, dst, term_capacity);
 }
 
+
 void term_update(struct term* term) {
     ioctl(STDIN_FILENO, TIOCGWINSZ, &term->ws);
 }
+
 
 void term_deinit() {
     write(STDOUT_FILENO, "\x1b[0m", 4);
@@ -36,14 +47,24 @@ void term_deinit() {
     ioctl(STDIN_FILENO, TCSETS, &term);
 }
 
-void term_init() {
+
+void term_init(void) {
     struct termios term;
-    ioctl(STDIN_FILENO, TCGETS, &term);
+
+    /* get current terminal attributes */
+    if (ioctl(STDIN_FILENO, TCGETS, &term) == -1)
+        return;
+
+    /* disable canonical mode and echo for raw input */
     term.c_lflag &= ~(ICANON | ECHO);
-    term.c_cc[VMIN] = 0;
-    term.c_cc[VTIME] = 1;
+    term.c_cc[VMIN]  = 0;   /* read() returns immediately, even with no bytes */
+    term.c_cc[VTIME] = 1;   /* 100ms timeout for read() */
+
+    /* apply modified terminal settings */
     ioctl(STDIN_FILENO, TCSETS, &term);
-    write(STDOUT_FILENO, "\x1b[?1049h", 8);
-    write(STDOUT_FILENO, "\x1b[0m", 4);
-    write(STDOUT_FILENO, "\x1b[37m", 5);
+
+    /* enter alternate screen, reset colors, set default foreground */
+    write(STDOUT_FILENO, ALT_SCREEN_ON, 8);
+    write(STDOUT_FILENO, RESET_ATTR, 4);
+    write(STDOUT_FILENO, FG_WHITE, 5);
 }

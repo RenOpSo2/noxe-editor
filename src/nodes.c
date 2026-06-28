@@ -19,16 +19,16 @@ void pgb_init(struct paged_gap_buffer* pgb, Arena* arena) {
 static void page_split(struct paged_gap_buffer* pgb, Arena* arena) {
     struct page* curr = pgb->active_page;
     struct page* new_page = page_new(arena);
-    
+
     uint32_t right_len = PAGE_CAPACITY - curr->gap_end;
     new_page->gap_end = PAGE_CAPACITY - right_len;
-    
+
     if (right_len > 0) {
         memcpy(new_page->data + new_page->gap_end, curr->data + curr->gap_end, right_len);
     }
-    
+
     curr->gap_end = PAGE_CAPACITY;
-    
+
     new_page->prev = curr;
     new_page->next = curr->next;
     if (curr->next) curr->next->prev = new_page;
@@ -198,5 +198,74 @@ void pgb_move_down(struct paged_gap_buffer* pgb) {
             pgb_move_left(pgb);
             break;
         }
+    }
+}
+
+// --- Selection & clipboard helpers ---
+
+// Returns the cursor's current linear byte offset from the start of the buffer.
+uint32_t pgb_cursor_pos(struct paged_gap_buffer* pgb) {
+    uint32_t pos = 0;
+    struct page* p = pgb->head;
+    while (p) {
+        if (p == pgb->active_page) {
+            pos += p->gap_start;
+            return pos;
+        }
+        pos += p->gap_start + (PAGE_CAPACITY - p->gap_end);
+        p = p->next;
+    }
+    return pos;
+}
+
+// Move cursor to a specific linear byte offset.
+void pgb_move_to_pos(struct paged_gap_buffer* pgb, uint32_t target) {
+    // Move to start first.
+    while (pgb->active_page->prev) {
+        pgb->active_page = pgb->active_page->prev;
+    }
+    while (pgb->active_page->gap_start > 0) {
+        pgb->active_page->gap_end--;
+        pgb->active_page->gap_start--;
+        pgb->active_page->data[pgb->active_page->gap_end] =
+            pgb->active_page->data[pgb->active_page->gap_start];
+    }
+    // Advance right by target steps.
+    for (uint32_t i = 0; i < target; i++) {
+        struct page* p = pgb->active_page;
+        if (p->gap_end == PAGE_CAPACITY && !p->next) break;
+        pgb_move_right(pgb);
+    }
+}
+
+// Copy logical bytes [from, to) from src into dst clipboard.
+void pgb_copy_range(struct paged_gap_buffer* dst, struct paged_gap_buffer* src,
+                    uint32_t from, uint32_t to, Arena* arena) {
+    pgb_clear(dst);
+    if (from >= to) return;
+
+    uint32_t pos = 0;
+    struct page* p = src->head;
+
+    while (p && pos < to) {
+        // Before-gap section of this page
+        for (uint32_t i = 0; i < p->gap_start && pos < to; i++, pos++) {
+            if (pos >= from) pgb_insert(dst, p->data[i], arena);
+        }
+        // After-gap section
+        for (uint32_t i = p->gap_end; i < PAGE_CAPACITY && pos < to; i++, pos++) {
+            if (pos >= from) pgb_insert(dst, p->data[i], arena);
+        }
+        p = p->next;
+    }
+}
+
+// Delete logical bytes [from, to) from pgb.
+void pgb_delete_range(struct paged_gap_buffer* pgb, uint32_t from, uint32_t to) {
+    if (from >= to) return;
+    pgb_move_to_pos(pgb, to);
+    uint32_t count = to - from;
+    for (uint32_t i = 0; i < count; i++) {
+        pgb_delete(pgb);
     }
 }

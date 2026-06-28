@@ -45,8 +45,15 @@ struct term {
 struct global {
     struct term term;
     struct paged_gap_buffer text;
+    struct paged_gap_buffer clipboard;
     struct paged_gap_buffer msg;
     char filepath[256];
+
+    // Selection: linear byte offsets into the logical content.
+    // sel_anchor is fixed when selection starts; cursor end is computed live.
+    enum bool has_selection;
+    uint32_t sel_anchor; // byte offset where selection started
+
     Arena arena;
 };
 

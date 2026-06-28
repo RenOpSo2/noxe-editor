@@ -1,5 +1,8 @@
 # Noxe - Architecture Overview
 
+This is the architecture documentation for the node-editor project, which you can view here.
+The architecture is clean and very easy to understand.
+
 ## Project Structure
 ```
 
@@ -13,10 +16,10 @@ src/
 ├── draw.c/h    # Terminal rendering
 ├── editor.c/h  # Core orchestrator (init/update/deinit)
 └── main.c      # Entry point
-libmemory      # Arena Allocator
+libmemory      # Arena Allocator (must use this, avoid malloc)
 ├── arena.c    
 ├── arena.h    # Header and docs libmemory
-└── examples.c
+└── examples.c 
 ```
 
 
