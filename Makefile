@@ -1,6 +1,6 @@
 # Compiler & Flags
 CC        = gcc
-CFLAGS = -Wall -Wextra -Wpedantic -O2 -std=gnu99
+CFLAGS = -Wall -Wextra -Wpedantic -g -O0 -std=gnu99
 LDFLAGS   =
 
 # Directories
