@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 // ---------------------------------------------------------------------------
 // Escape sequence parser
@@ -242,9 +243,15 @@ enum result input_update(struct global* global) {
         sel_clear(global); // any non-special key clears selection unless it's a replace
 
         if (ch == '\b' || ch == 127) {
+            // Get the character that will be deleted
+            char buffer[buf_capacity];
+            pgb_to_str(buffer, &global->text);
+            uint32_t len = strlen(buffer);
+            char deleted_char = (len > 0) ? buffer[len - 1] : ch;
+            
             uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_delete(&global->text);
-            undo_save_delete(global, ch, pos);
+            undo_save_delete(global, deleted_char, pos);
         } else if (ch == '\r') {
             uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, '\n', &global->arena);

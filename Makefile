@@ -15,10 +15,15 @@ TARGET    = $(BINDIR)/noxe
 SRCS      = $(filter-out $(SRCDIR)/cmd.c, $(wildcard $(SRCDIR)/*.c)) libmemory/arena.c
 OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(filter-out $(SRCDIR)/cmd.c, $(wildcard $(SRCDIR)/*.c))) \
             $(BUILDDIR)/libmemory/arena.o
-DEPS      = $(OBJS:.o=.d)
+DEPS      = $(OBJS:.o=.d) $(BUILDDIR)/test_undo.d
+
+# Test target
+TEST_SRCS = test_undo.c
+TEST_OBJS = $(BUILDDIR)/test_undo.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
+TEST_TARGET = $(BINDIR)/test_undo
 
 # Phony targets
-.PHONY: all clean run format dirs
+.PHONY: all clean run format dirs test
 
 # Default target
 all: dirs $(TARGET)
@@ -32,6 +37,18 @@ $(TARGET): $(OBJS)
 	@echo "Linking $@..."
 	@$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 	@echo "Build complete: $@"
+
+# Build test
+$(TEST_TARGET): $(TEST_OBJS)
+	@echo "Linking test..."
+	@$(CC) $(CFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS)
+	@echo "Test build complete: $@"
+
+# Compile test object
+$(BUILDDIR)/test_undo.o: test_undo.c
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 # Compile objects with dependency tracking
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
@@ -79,8 +96,14 @@ help:
 	@echo "Available targets:"
 	@echo "  all          : Build the project (default)"
 	@echo "  run          : Build and run"
+	@echo "  test         : Build and run undo/redo test"
 	@echo "  clean        : Remove build artifacts"
 	@echo "  format       : Format source with clang-format"
 	@echo "  format-check : Check formatting without changes"
 	@echo "  check        : Static analysis with cppcheck"
 	@echo "  help         : Show this help"
+
+# Run test
+test: $(TEST_TARGET)
+	@echo "Running test..."
+	@$(TEST_TARGET)

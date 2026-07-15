@@ -313,15 +313,17 @@ void undo_perform(struct global* global) {
     }
     
     // Perform undo
-    pgb_move_to_pos(&global->text, act->pos);
-    
     if (act->type == action_insert) {
-        // Undo insert = delete
+        // Undo insert = delete the character that was inserted
+        // Move to position AFTER the insertion (cursor is now after the char)
+        pgb_move_to_pos(&global->text, act->pos + 1);
         for (uint32_t i = 0; i < act->len; i++) {
             pgb_delete(&global->text);
         }
     } else if (act->type == action_delete) {
-        // Undo delete = insert
+        // Undo delete = insert the character that was deleted
+        // Move to position where it was deleted, then insert
+        pgb_move_to_pos(&global->text, act->pos);
         for (uint32_t i = 0; i < act->len; i++) {
             pgb_insert(&global->text, act->data[i], &global->arena);
         }
@@ -335,26 +337,23 @@ void redo_perform(struct global* global) {
     
     struct action* act = &global->redo_stack[global->redo_count - 1];
     
-    // Save back to undo stack
-    if (global->undo_count < UNDO_STACK_SIZE) {
-        global->undo_stack[global->undo_count] = *act;
-        global->undo_count++;
-    }
-    
     // Perform redo
-    pgb_move_to_pos(&global->text, act->pos);
-    
     if (act->type == action_insert) {
-        // Redo insert = insert
+        // Redo insert = insert the character back at original position
+        pgb_move_to_pos(&global->text, act->pos);
         for (uint32_t i = 0; i < act->len; i++) {
             pgb_insert(&global->text, act->data[i], &global->arena);
         }
     } else if (act->type == action_delete) {
-        // Redo delete = delete
+        // Redo delete = delete the character again
+        // Move to position after the character, then delete
+        pgb_move_to_pos(&global->text, act->pos + 1);
         for (uint32_t i = 0; i < act->len; i++) {
             pgb_delete(&global->text);
         }
     }
     
+    // Move action back to undo stack
     global->redo_count--;
+    global->undo_count++;
 }
