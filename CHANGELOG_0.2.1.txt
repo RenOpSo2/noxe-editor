@@ -1,0 +1,58 @@
+CHANGELOG for 0.2.1 Release
+====================================
+
+Bug Fixes
+---------
+
+### Critical: Crash on Memory Exhaustion (NULL Pointer Dereference)
+- **Issue**: page_new() allocated pages from a fixed 16MB arena via
+  arena_cnew() but never checked the result for NULL. Once the arena filled
+  up — from opening a large file, pasting a lot of text, or a long editing
+  session — the very next page allocation dereferenced NULL and crashed the
+  editor with a segfault, losing any unsaved work. This directly undermined
+  the editor's "large file support" feature.
+- **Fix**: page_new() now returns NULL on allocation failure instead of
+  dereferencing it. page_split() and pgb_insert() propagate that failure and
+  drop the edit instead of writing out of bounds or crashing. pgb_init() now
+  fails loudly with a clear message on the (practically unreachable)
+  startup-time allocation failure instead of leaving head/tail as NULL.
+- **Impact**: The editor no longer crashes when its memory arena is
+  exhausted; it now simply stops accepting further edits.
+
+### Critical: Silent Data Corruption on Undo After Backspace
+- **Issue**: The backspace handler recorded the character deleted for undo
+  purposes by reading the *last character of the entire document*, and
+  recorded the cursor position *before* the delete instead of the position
+  the character actually occupied. Both mistakes happened to cancel out only
+  when backspacing at the very end of the document. Backspacing anywhere
+  else (e.g. after using arrow keys) and then pressing Ctrl+U would silently
+  insert the wrong character at the wrong offset, corrupting the file with
+  no error shown.
+- **Fix**: The backspace handler now reads the character immediately before
+  the cursor (the one actually being removed) and records that character's
+  own position for the undo stack.
+- **Impact**: Undo (Ctrl+U) after Backspace now always restores the correct
+  character at the correct position, regardless of cursor position.
+
+Files Modified
+--------------
+- src/nodes.c - page_new/page_split/pgb_insert/pgb_init now handle arena
+  exhaustion safely instead of crashing
+- src/input.c - Fixed backspace handler to record the correct deleted
+  character and position for undo
+- docs/BUG_REPORT.md - Added write-up of both critical bugs and their fixes
+
+Testing
+-------
+- Verified with a standalone harness that backspacing mid-document and
+  undoing restores the original text exactly
+- Verified with a standalone harness that exhausting a deliberately small
+  arena no longer crashes the process
+- Editor rebuilt via `make` with no warnings and confirmed running in the
+  console workflow
+
+Security
+-------
+- Fixed critical crash (NULL pointer dereference) reachable by normal usage
+  on large files or long editing sessions
+- Fixed critical data-corruption bug in the undo stack
