@@ -320,15 +320,21 @@ enum result input_update(struct global* global) {
         sel_clear(global); // any non-special key clears selection unless it's a replace
 
         if (ch == '\b' || ch == 127) {
-            // Get the character that will be deleted
-            char buffer[buf_capacity];
-            pgb_to_str(buffer, sizeof(buffer), &global->text);
-            uint32_t len = strlen(buffer);
-            char deleted_char = (len > 0) ? buffer[len - 1] : ch;
-            
-            uint32_t pos = pgb_cursor_pos(&global->text);
-            pgb_delete(&global->text);
-            undo_save_delete(global, deleted_char, pos);
+            uint32_t cursor_before = pgb_cursor_pos(&global->text);
+            if (cursor_before > 0) {
+                // The character being removed is the one immediately before
+                // the cursor, at index (cursor_before - 1) — not the last
+                // character of the whole document. That is also the correct
+                // position to record for undo, since after the delete the
+                // cursor rests exactly there.
+                char buffer[buf_capacity];
+                pgb_to_str(buffer, sizeof(buffer), &global->text);
+                uint32_t del_pos = cursor_before - 1;
+                char deleted_char = buffer[del_pos];
+
+                pgb_delete(&global->text);
+                undo_save_delete(global, deleted_char, del_pos);
+            }
         } else if (ch == '\r') {
             uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, '\n', &global->arena);

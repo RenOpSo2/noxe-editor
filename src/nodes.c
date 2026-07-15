@@ -1,9 +1,11 @@
 #include "nodes.h"
 #include "global.h"
 #include <string.h>
+#include <unistd.h>
 
 static struct page* page_new(Arena* arena) {
     struct page* p = arena_cnew(arena, struct page);
+    if (!p) return NULL; // Arena exhausted — let the caller decide what to do.
     p->gap_start = 0;
     p->gap_end = PAGE_CAPACITY;
     p->next = NULL;
@@ -13,6 +15,15 @@ static struct page* page_new(Arena* arena) {
 
 void pgb_init(struct paged_gap_buffer* pgb, Arena* arena) {
     pgb->head = page_new(arena);
+    // page_new only fails if the arena has no room for a single page (~4KB);
+    // with the editor's 16MB arena this should never happen at startup, but
+    // fail loudly here rather than leaving head/tail/active_page as NULL and
+    // crashing unpredictably later on first use.
+    if (!pgb->head) {
+        static char emergency_msg[] = "noxe: out of memory during startup\n";
+        write(STDERR_FILENO, emergency_msg, sizeof(emergency_msg) - 1);
+        _exit(1);
+    }
     pgb->tail = pgb->head;
     pgb->active_page = pgb->head;
 }
@@ -20,6 +31,7 @@ void pgb_init(struct paged_gap_buffer* pgb, Arena* arena) {
 static void page_split(struct paged_gap_buffer* pgb, Arena* arena) {
     struct page* curr = pgb->active_page;
     struct page* new_page = page_new(arena);
+    if (!new_page) return; // Arena exhausted — caller (pgb_insert) will drop the edit.
 
     uint32_t right_len = PAGE_CAPACITY - curr->gap_end;
     new_page->gap_end = PAGE_CAPACITY - right_len;
@@ -42,6 +54,11 @@ void pgb_insert(struct paged_gap_buffer* pgb, char ch, Arena* arena) {
     if (p->gap_start == p->gap_end) {
         page_split(pgb, arena);
         p = pgb->active_page;
+        if (p->gap_start == p->gap_end) {
+            // Split failed (arena exhausted): no room left, drop the
+            // character instead of writing out of bounds or crashing.
+            return;
+        }
     }
     p->data[p->gap_start++] = ch;
 }
