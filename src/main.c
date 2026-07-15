@@ -1,22 +1,31 @@
 #include "editor.h"
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
+
+#define VERSION "0.1.0-pre"
+
+void print_version() {
+    printf("Noxe-Editor version %s\n", VERSION);
+    printf("MIT License\n");
+    printf("Copyright (c) 2026 Revan Aprian\n");
+}
 
 int main(int argc, char* argv[]) {
-    printf("DEBUG: main start\n"); fflush(stdout);
+    // Check for --version flag
+    if (argc > 1 && strcmp(argv[1], "--version") == 0) {
+        print_version();
+        return 0;
+    }
+    
     static struct global global;
     const char* filepath = (argc > 1) ? argv[1] : NULL;
-    printf("DEBUG: calling editor_init\n"); fflush(stdout);
     editor_init(&global, filepath);
-    printf("DEBUG: editor_init done\n"); fflush(stdout);
     while (1) {
-        printf("DEBUG: editor_update loop\n"); fflush(stdout);
         if (editor_update(&global) != ok) {
             break;
         }
     }
-    printf("DEBUG: calling editor_deinit\n"); fflush(stdout);
     editor_deinit(&global);
-    printf("DEBUG: main end\n"); fflush(stdout);
     return 0;
 }

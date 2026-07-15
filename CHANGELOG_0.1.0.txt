@@ -1,0 +1,163 @@
+# Changelog for Noxe-Editor v0.1.0-pre
+
+## Release Date: 2026-07-15
+
+## Version: 0.1.0-pre
+
+## Summary
+
+This is the initial pre-release of Noxe-Editor, a fast and efficient terminal-based text editor built in C. This release includes core editing functionality, syntax highlighting, undo/redo support, and efficient memory management.
+
+## New Features
+
+### Core Functionality
+- **Text Editing**: Full text editing with insert, delete, and cursor movement
+- **File Operations**: Open, save, and create files
+- **Auto-indent**: Automatically preserves indentation when pressing Enter
+- **Undo/Redo**: Full undo/redo support with Ctrl+U and Ctrl+R
+- **Clipboard**: Copy, cut, and paste functionality
+- **Selection**: Text selection using Shift+arrow keys
+
+### Performance & Architecture
+- **Paged Gap Buffer**: Efficient text storage for handling massive documents
+- **Arena Allocator**: Optimized memory management for node allocation
+- **Render Buffer**: Double-buffered terminal rendering for smooth display
+- **Syntax Highlighting**: C syntax highlighting for better code readability
+
+### User Interface
+- **Clean terminal UI**: Alternate screen buffer for distraction-free editing
+- **Status bar**: Shows current file and editor status
+- **Cursor positioning**: Accurate cursor placement and visibility
+- **Color management**: Proper terminal color handling to prevent screen corruption
+
+## Keybindings
+
+### Editing
+- Arrow keys: Move cursor up/down/left/right
+- Enter: Insert new line (with auto-indent)
+- Backspace/Delete: Delete character
+- Tab: Insert tab character
+
+### File Operations
+- Ctrl+S: Save file
+- Ctrl+Q: Quit editor
+
+### Edit Operations
+- Ctrl+C: Copy selection
+- Ctrl+X: Cut selection
+- Ctrl+V: Paste clipboard
+- Ctrl+A: Select all
+
+### Undo/Redo
+- Ctrl+U: Undo last action
+- Ctrl+R: Redo undone action
+
+### Selection
+- Shift+Arrow keys: Extend selection
+
+## Bug Fixes
+
+### Screen Rendering
+- Fixed screen corruption caused by status bar colors bleeding into text area
+- Replaced complex gap buffer rendering with simple string-based approach
+- Proper terminal color reset sequences for clean display
+- Fixed cursor visibility control for consistent UI
+
+### Undo/Redo
+- Fixed cursor position handling in undo/redo operations
+- Corrected insert vs delete operation handling
+- Implemented proper character capture for delete operations
+- Fixed stack management for undo/redo actions
+
+### Memory Management
+- Fixed render buffer byte count issues
+- Corrected screen clearing behavior
+- Improved arena allocator integration
+
+## Technical Improvements
+
+### Build System
+- Added comprehensive Makefile with multiple targets
+- Added unit test framework and test target
+- Improved dependency tracking
+- Added clean and format targets
+
+### Code Quality
+- Removed debug printf statements
+- Improved error handling
+- Better code organization and modularity
+- Consistent coding style
+
+## Testing
+
+### Unit Tests
+- Added comprehensive undo/redo unit test
+- Tests insert, delete, undo, and redo operations
+- Tests stack management and cursor positioning
+- Added `make test` target for easy testing
+
+## Documentation
+
+### User Documentation
+- Comprehensive README with installation instructions
+- Detailed keybinding reference
+- Usage examples and getting started guide
+- Architecture overview
+
+### Developer Documentation
+- Code comments and documentation
+- Clear separation of concerns
+- Modular design for maintainability
+
+## Known Limitations
+
+- Syntax highlighting currently only supports C language
+- Undo/redo stack limited to 100 operations
+- File size limited by available memory
+- Limited to single file editing
+- No search/replace functionality yet
+
+## Future Plans
+
+### v0.2.0 Planned Features
+- Multi-language syntax highlighting
+- Search and replace functionality
+- Multiple file tabs
+- Configuration file support
+- Plugin system
+- Improved undo/redo with action grouping
+
+## Installation
+
+### Building from Source
+```bash
+git clone <repository-url>
+cd noxe-editor
+make
+```
+
+### Running
+```bash
+./bin/noxe [filename]
+```
+
+## Requirements
+
+- GCC compiler
+- Make build tool
+- Linux/Unix-like operating system
+- Terminal with ANSI escape sequence support
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Contributors
+
+- Revan Aprian (Lead Developer)
+
+## Acknowledgments
+
+- Inspired by vim and other terminal editors
+- Built with focus on performance and simplicity
+- Uses modern C practices for efficiency
