@@ -28,6 +28,9 @@ static enum result file_validate_path(const char* path, char resolved[PATH_MAX])
     return ok;
 }
 
+/* Maximum file size the editor will load (64 MiB). */
+#define MAX_FILE_SIZE (64 * 1024 * 1024)
+
 /*
  * file_read — Load the file at *path* into *pgb*.
  *
@@ -35,7 +38,9 @@ static enum result file_validate_path(const char* path, char resolved[PATH_MAX])
  * resolved path with O_NOFOLLOW to guard against a symlink swap between
  * the validate call and open().
  *
- * Addresses: NX-001
+ * Enforces MAX_FILE_SIZE via fstat() before entering the read loop.
+ *
+ * Addresses: NX-001, NX-003
  */
 enum result file_read(struct paged_gap_buffer* pgb, const char* path, Arena* arena) {
     char resolved[PATH_MAX];
@@ -44,6 +49,17 @@ enum result file_read(struct paged_gap_buffer* pgb, const char* path, Arena* are
     /* O_NOFOLLOW: refuse to follow a symlink at the final path component. */
     int fd = open(resolved, O_RDONLY | O_NOFOLLOW);
     if (fd == -1) return err;
+
+    /* Verify size before allocation to prevent memory exhaustion (NX-003) */
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        close(fd);
+        return err;
+    }
+    if (st.st_size > MAX_FILE_SIZE) {
+        close(fd);
+        return err;
+    }
 
     char buffer[4096];
     ssize_t bytes_read;
