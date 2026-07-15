@@ -8,7 +8,7 @@
 void print_version() {
     printf("Noxe-Editor version %s\n", VERSION);
     printf("MIT License\n");
-    printf("Copyright (c) 2026 Revan Aprian\n");
+    printf("Copyright (c) 2026 Revan Aprian\n");	
 }
 
 int main(int argc, char* argv[]) {
@@ -27,3 +27,6 @@ int main(int argc, char* argv[]) {
     editor_deinit(&global);
     return 0;
 }
+
+
+
