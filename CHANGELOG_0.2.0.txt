@@ -1,0 +1,138 @@
+# Changelog for Noxe-Editor v0.2.0-pre
+
+## Release Date: 2026-07-15
+
+## Version: 0.2.0-pre
+
+## Summary
+
+This is a fast-follow pre-release adding essential editor features: search functionality, line numbers, and screen refresh. This release focuses on pragmatic, startup-speed development with minimal viable implementations.
+
+## New Features
+
+### Search
+- **Ctrl+F**: Enter search mode - type query and press Enter
+- **Ctrl+N**: Navigate to next search match
+- **Ctrl+P**: Navigate to previous search match
+- Displays match count in status message
+- Wraps around when reaching end/beginning
+- ESC to cancel search
+
+### Line Numbers
+- Right-aligned line numbers in left gutter (6 characters wide)
+- Dim gray color for subtle appearance
+- Always visible for all lines
+- Properly offsets cursor position to account for gutter width
+
+### Screen Refresh (Rendo Fix)
+- **Ctrl+R**: Force full screen redraw
+- Fixes rendering artifacts and cursor positioning issues
+- Clears and redraws entire editor display
+
+## Keybinding Changes
+
+| Key | Old Function | New Function |
+|-----|--------------|--------------|
+| Ctrl+R | Redo | Screen Refresh |
+| Ctrl+Y | (unused) | Redo |
+| Ctrl+F | (unused) | Search |
+| Ctrl+N | (unused) | Search Next |
+| Ctrl+P | (unused) | Search Previous |
+
+## Changes
+
+### Core Changes
+- Updated VERSION from "0.1.0-pre" to "0.2.0-pre"
+- Added search state to global struct (search_active, search_query, search_pos, search_match_count)
+- Implemented search functions: search_init(), search_find(), search_next(), search_prev()
+- Modified draw_text() to render line numbers with proper gutter formatting
+- Adjusted cursor positioning to account for line number gutter (7 columns offset)
+
+### Input Handling
+- Added search mode state machine in input.c
+- Search mode captures keystrokes for query input
+- ESC cancels search, Enter confirms
+- Backspace works in search mode
+- Added Ctrl+F, Ctrl+N, Ctrl+P, Ctrl+Y keybindings
+
+### Drawing
+- Line numbers rendered before each line
+- ANSI color codes for dim gray line numbers
+- Reset colors after line numbers
+- Updated status bar to show search and refresh hints
+
+## Bug Fixes
+
+### Rendering
+- Fixed cursor positioning to account for line number gutter
+- Proper color management for line number display
+
+## Testing
+
+### New Tests
+- Added test_0.2.0.c with comprehensive tests for:
+  - Search functionality (find, next, previous)
+  - Empty search handling
+  - No match handling
+  - Wrap-around navigation
+- All tests pass successfully
+
+### Test Infrastructure
+- Updated Makefile to build and run new tests
+- Separate test targets for undo and 0.2.0 features
+- `make test` runs all tests sequentially
+
+## Known Limitations
+
+- Search is case-sensitive
+- No regex support (simple substring matching)
+- Line numbers are always shown (cannot be toggled)
+- Search does not highlight matches (only moves cursor)
+- Maximum search query length: 255 characters
+
+## Future Improvements
+
+- Case-insensitive search option
+- Regex search support
+- Toggle line numbers on/off
+- Highlight all search matches
+- Search history
+- Replace functionality
+
+## Files Changed
+
+- src/main.c: Updated VERSION
+- src/test_main.c: Updated VERSION
+- src/global.h: Added search state fields
+- src/nodes.h: Added search function declarations
+- src/nodes.c: Implemented search functions
+- src/input.c: Added search mode and keybindings
+- src/draw.c: Added line number rendering
+- src/editor.c: Initialize search state
+- Makefile: Added test_0.2.0.c to build
+- test_0.2.0.c: New unit tests (NEW FILE)
+
+## Build & Test
+
+```bash
+make clean
+make
+make test
+```
+
+All tests pass. Binary available at bin/noxe.
+
+## Compatibility
+
+- Fully backward compatible with v0.1.0-pre
+- Redo moved from Ctrl+R to Ctrl+Y (user visible change)
+- All other existing features unchanged
+
+## License
+
+MIT License - Same as v0.1.0-pre
+
+## Contributors
+
+- Revan Aprian (Lead Developer)
+- Mistral Vibe (0.2.0-pre Release)

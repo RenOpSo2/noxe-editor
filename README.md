@@ -10,11 +10,14 @@ noxe-editor is considered very efficient for writing everyday code and is friend
 
 - **Fast and efficient**: Built with C for maximum performance
 - **Auto-indent**: Automatically preserves indentation when pressing Enter
-- **Undo/Redo**: Full undo/redo support with Ctrl+U and Ctrl+R
+- **Undo/Redo**: Full undo/redo support with Ctrl+U and Ctrl+Y
 - **Syntax highlighting**: C syntax highlighting for better code readability
 - **Large file support**: Paged Gap Buffer for handling massive documents
 - **Clipboard**: Copy, cut, and paste functionality
 - **Selection**: Shift+arrow keys for text selection
+- **Search**: Find text with Ctrl+F, navigate with Ctrl+N (next) / Ctrl+P (previous)
+- **Line Numbers**: Display line numbers in left gutter
+- **Screen Refresh**: Ctrl+R to fix rendering issues
 - **Memory efficient**: Uses arena allocator for optimized memory management
 
 ## Installation
@@ -73,7 +76,16 @@ make run
 
 #### Undo/Redo
 - **Ctrl+U**: Undo last action
-- **Ctrl+R**: Redo undone action
+- **Ctrl+Y**: Redo undone action
+
+#### Search
+- **Ctrl+F**: Start search
+- **Ctrl+N**: Next match
+- **Ctrl+P**: Previous match
+- **ESC**: Cancel search
+
+#### View
+- **Ctrl+R**: Refresh screen
 
 #### Selection
 - **Shift+Arrow keys**: Extend selection
