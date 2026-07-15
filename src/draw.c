@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 static RenderBuffer rb;
 
@@ -32,66 +33,28 @@ static void draw_cursor_home(void) {
 static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     // Simple pragmatic approach: convert buffer to string, then draw line by line
     char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, pgb);
+    pgb_to_str(full_buffer, sizeof(full_buffer), pgb);
     
     uint32_t cursor_pos = pgb_cursor_pos(pgb);
     
     RB_ESC("\x1b[0m\x1b[39;49m");
     
-    uint32_t current_line = 0;
     uint32_t pos = 0;
     uint32_t line_start = 0;
     uint32_t cursor_line = 0;
     uint32_t cursor_col = 0;
     
-    // Simple scroll: start from beginning for now
-    while (full_buffer[pos] != '\0' && current_line < size_y) {
-        if (full_buffer[pos] == '\n') {
-            // Draw line number (right-aligned, 5 chars wide, dim gray)
-            RB_ESC("\x1b[0m\x1b[38;5;244m");
-            char line_num_str[16];
-            int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", current_line + 1);
-            if (line_num_len > 0) {
-                rb_append(&rb, line_num_str, line_num_len);
-            }
-            RB_ESC("\x1b[0m\x1b[39;49m");
-            
-            // Output the line
-            uint32_t line_len = pos - line_start;
-            if (line_len > 0) {
-                rb_append(&rb, full_buffer + line_start, line_len);
-            }
-            RB_ESC("\x1b[K\r\n");
-            current_line++;
-            line_start = pos + 1;
-        }
-        pos++;
-    }
-    
-    // Handle last line if no trailing newline
-    if (line_start < pos && current_line < size_y) {
-        // Draw line number
-        RB_ESC("\x1b[0m\x1b[38;5;244m");
-        char line_num_str[16];
-        int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", current_line + 1);
-        if (line_num_len > 0) {
-            rb_append(&rb, line_num_str, line_num_len);
-        }
-        RB_ESC("\x1b[0m\x1b[39;49m");
-        
-        rb_append(&rb, full_buffer + line_start, pos - line_start);
-        RB_ESC("\x1b[K\r\n");
-        current_line++;
-    }
-    
-    // Fill remaining lines
-    for (; current_line < size_y; current_line++) {
-        RB_ESC("\x1b[K\r\n");
-    }
-    
-    // Calculate cursor position
+    // First, calculate total lines and cursor position
+    uint32_t total_lines = 0;
     uint32_t temp_line = 0;
     uint32_t temp_col = 0;
+    uint32_t buffer_len = strlen(full_buffer);
+    
+    // Safety check: ensure cursor position is within buffer bounds
+    if (cursor_pos > buffer_len) {
+        cursor_pos = buffer_len;
+    }
+    
     for (uint32_t i = 0; i < cursor_pos && full_buffer[i] != '\0'; i++) {
         if (full_buffer[i] == '\n') {
             temp_line++;
@@ -103,9 +66,78 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     cursor_line = temp_line;
     cursor_col = temp_col;
     
+    // Count total lines in buffer
+    for (uint32_t i = 0; full_buffer[i] != '\0'; i++) {
+        if (full_buffer[i] == '\n') total_lines++;
+    }
+    if (full_buffer[0] != '\0' && full_buffer[strlen(full_buffer) - 1] != '\n') {
+        total_lines++; // Last line without newline
+    }
+    
+    // Calculate scroll offset to keep cursor visible
+    uint32_t scroll_offset = 0;
+    if (cursor_line >= size_y) {
+        scroll_offset = cursor_line - size_y + 1;
+    }
+    
+    // Render lines starting from scroll offset
+    uint32_t rendered_line = 0;
+    uint32_t buffer_line = 0;
+    pos = 0;
+    line_start = 0;
+    
+    while (full_buffer[pos] != '\0' && rendered_line < size_y) {
+        if (full_buffer[pos] == '\n') {
+            if (buffer_line >= scroll_offset) {
+                // Draw line number (right-aligned, 5 chars wide, dim gray)
+                RB_ESC("\x1b[0m\x1b[38;5;244m");
+                char line_num_str[16];
+                int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
+                if (line_num_len > 0) {
+                    rb_append(&rb, line_num_str, line_num_len);
+                }
+                RB_ESC("\x1b[0m\x1b[39;49m");
+                
+                // Output the line
+                uint32_t line_len = pos - line_start;
+                if (line_len > 0) {
+                    rb_append(&rb, full_buffer + line_start, line_len);
+                }
+                RB_ESC("\x1b[K\r\n");
+                rendered_line++;
+            }
+            buffer_line++;
+            line_start = pos + 1;
+        }
+        pos++;
+    }
+    
+    // Handle last line if no trailing newline
+    if (line_start < pos && buffer_line >= scroll_offset && rendered_line < size_y) {
+        // Draw line number
+        RB_ESC("\x1b[0m\x1b[38;5;244m");
+        char line_num_str[16];
+        int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
+        if (line_num_len > 0) {
+            rb_append(&rb, line_num_str, line_num_len);
+        }
+        RB_ESC("\x1b[0m\x1b[39;49m");
+        
+        rb_append(&rb, full_buffer + line_start, pos - line_start);
+        RB_ESC("\x1b[K\r\n");
+        rendered_line++;
+    }
+    
+    // Fill remaining lines
+    for (; rendered_line < size_y; rendered_line++) {
+        RB_ESC("\x1b[K\r\n");
+    }
+    
     // Position cursor (account for status bar at line 1 and line number gutter)
+    // Adjust cursor line for scroll offset
+    uint32_t visible_cursor_line = cursor_line - scroll_offset;
     char cursor_seq[64];
-    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", cursor_line + 2, cursor_col + 7);
+    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", visible_cursor_line + 2, cursor_col + 7);
     if (len > 0 && len < (int)sizeof(cursor_seq)) {
         rb_append(&rb, cursor_seq, len);
     }

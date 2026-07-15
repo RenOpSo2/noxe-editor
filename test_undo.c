@@ -25,7 +25,7 @@ int main() {
     undo_save_insert(&global, 'a', pos);
     
     char buffer[100];
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After insert: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     
@@ -33,7 +33,7 @@ int main() {
     printf("\nTest 2: Undo insertion\n");
     undo_perform(&global);
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After undo: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     printf("Redo count: %u\n", global.redo_count);
@@ -42,7 +42,7 @@ int main() {
     printf("\nTest 3: Redo insertion\n");
     redo_perform(&global);
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After redo: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     printf("Redo count: %u\n", global.redo_count);
@@ -55,7 +55,7 @@ int main() {
         undo_save_insert(&global, "hello"[i], pos);
     }
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After insert: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     
@@ -65,7 +65,7 @@ int main() {
         undo_perform(&global);
     }
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After undo: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     printf("Redo count: %u\n", global.redo_count);
@@ -76,7 +76,7 @@ int main() {
         redo_perform(&global);
     }
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After redo: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     printf("Redo count: %u\n", global.redo_count);
@@ -84,14 +84,14 @@ int main() {
     // Test 7: Delete with undo (get actual deleted character)
     printf("\nTest 7: Delete last character with undo saving\n");
     char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, &global.text);
+    pgb_to_str(full_buffer, sizeof(full_buffer), &global.text);
     char deleted_char = full_buffer[strlen(full_buffer) - 1];
     
     pos = pgb_cursor_pos(&global.text);
     pgb_delete(&global.text);
     undo_save_delete(&global, deleted_char, pos);
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After delete: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     
@@ -99,7 +99,7 @@ int main() {
     printf("\nTest 8: Undo deletion\n");
     undo_perform(&global);
     
-    pgb_to_str(buffer, &global.text);
+    pgb_to_str(buffer, sizeof(buffer), &global.text);
     printf("After undo delete: '%s'\n", buffer);
     printf("Undo count: %u\n", global.undo_count);
     

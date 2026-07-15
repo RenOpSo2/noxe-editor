@@ -77,12 +77,12 @@ void pgb_replace_str(struct paged_gap_buffer* pgb, const char* src, Arena* arena
     pgb_insert_str(pgb, src, arena);
 }
 
-void pgb_to_str(char* dst, struct paged_gap_buffer* pgb) {
+void pgb_to_str(char* dst, size_t dst_size, struct paged_gap_buffer* pgb) {
     uint32_t i = 0;
     struct page* p = pgb->head;
-    while (p) {
-        for (uint32_t j = 0; j < p->gap_start; j++) dst[i++] = p->data[j];
-        for (uint32_t j = p->gap_end; j < PAGE_CAPACITY; j++) dst[i++] = p->data[j];
+    while (p && i < dst_size - 1) {
+        for (uint32_t j = 0; j < p->gap_start && i < dst_size - 1; j++) dst[i++] = p->data[j];
+        for (uint32_t j = p->gap_end; j < PAGE_CAPACITY && i < dst_size - 1; j++) dst[i++] = p->data[j];
         p = p->next;
     }
     dst[i] = '\0';
@@ -380,7 +380,7 @@ void search_find(struct global* global, const char* query) {
     
     // Convert buffer to string for searching
     char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, &global->text);
+    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
     
     uint32_t count = 0;
     uint32_t first_match = (uint32_t)-1;
@@ -410,7 +410,7 @@ void search_next(struct global* global) {
     if (!global->search_active || global->search_query[0] == '\0') return;
     
     char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, &global->text);
+    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
     
     char* query = global->search_query;
     uint32_t query_len = strlen(query);
@@ -447,7 +447,7 @@ void search_prev(struct global* global) {
     if (!global->search_active || global->search_query[0] == '\0') return;
     
     char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, &global->text);
+    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
     
     char* query = global->search_query;
     

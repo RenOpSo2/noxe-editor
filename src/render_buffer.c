@@ -19,8 +19,11 @@ void rb_append(RenderBuffer *rb, const void *src, size_t size)
     if (!rb || !src || size == 0)
         return;
 
-    if (rb->len + size > buf_capacity)
+    // Check if adding this would overflow the buffer
+    if (rb->len + size > buf_capacity) {
+        // Truncate to fit available space
         size = buf_capacity - rb->len;
+    }
 
     if (size == 0)
         return;

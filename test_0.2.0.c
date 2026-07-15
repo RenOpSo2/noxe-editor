@@ -32,7 +32,7 @@ void test_line_numbers() {
     
     // Verify the buffer has the expected content
     char buffer[buf_capacity];
-    pgb_to_str(buffer, &g.text);
+    pgb_to_str(buffer, sizeof(buffer), &g.text);
     assert(strcmp(buffer, "Line 1\nLine 2\nLine 3") == 0);
     
     printf("  ✓ Text buffer contains multiple lines\n");

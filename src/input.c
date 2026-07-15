@@ -322,7 +322,7 @@ enum result input_update(struct global* global) {
         if (ch == '\b' || ch == 127) {
             // Get the character that will be deleted
             char buffer[buf_capacity];
-            pgb_to_str(buffer, &global->text);
+            pgb_to_str(buffer, sizeof(buffer), &global->text);
             uint32_t len = strlen(buffer);
             char deleted_char = (len > 0) ? buffer[len - 1] : ch;
             

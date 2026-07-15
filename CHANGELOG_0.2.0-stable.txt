@@ -1,0 +1,75 @@
+CHANGELOG for 0.2.0-stable Release
+====================================
+
+Bug Fixes
+---------
+
+### Critical: Buffer Overflow in pgb_to_str (40+ line file bug)
+- **Issue**: The pgb_to_str() function lacked buffer size bounds checking, causing 
+  buffer overflow when files exceeded 65536 bytes (buf_capacity). This manifested 
+  as bugs when opening files with 40+ lines depending on line length.
+- **Fix**: Added dst_size parameter to pgb_to_str() to enforce bounds checking and 
+  prevent overflow. Updated all call sites across the codebase.
+- **Impact**: Files of any size can now be safely loaded and processed without 
+  buffer overflow vulnerabilities.
+
+### Cursor Positioning and Scrolling Issues
+- **Issue**: The editor had no scrolling implementation and always rendered from 
+  line 0, causing incorrect cursor positioning when viewing larger files.
+- **Fix**: Implemented proper scrolling logic in draw_text() that:
+  - Calculates cursor position relative to buffer
+  - Determines scroll offset to keep cursor visible
+  - Renders only visible lines starting from scroll offset
+  - Adjusts cursor positioning for the scroll offset
+- **Impact**: Cursor now positions correctly even with files containing hundreds 
+  of lines, and the display scrolls properly to follow cursor movement.
+
+### Buffer Safety Improvements
+- **Issue**: Multiple potential buffer overflow vulnerabilities in string operations 
+  throughout the codebase.
+- **Fix**: Added comprehensive bounds checking and safety validations in draw 
+  operations and buffer conversions.
+- **Impact**: Improved overall stability and security of the editor.
+
+### Render Buffer Truncation Handling
+- **Issue**: Unclear truncation handling in render buffer append operations.
+- **Fix**: Improved comments and logic in rb_append() for better truncation 
+  handling and code clarity.
+- **Impact**: More predictable behavior when render buffer capacity is exceeded.
+
+### Code Quality Improvements
+- Removed unused variable warning in draw.c
+- Added necessary includes (stdint.h) for proper type support
+- Updated all test files to use the new pgb_to_str() signature
+
+Files Modified
+--------------
+- src/nodes.h - Updated pgb_to_str() signature
+- src/nodes.c - Fixed buffer overflow in pgb_to_str() and search functions
+- src/draw.c - Implemented scrolling and improved cursor positioning
+- src/input.c - Updated pgb_to_str() call with size parameter
+- src/cmd.c - Updated pgb_to_str() call with size parameter
+- src/render_buffer.c - Improved truncation handling
+- test_0.2.0.c - Updated pgb_to_str() calls
+- test_undo.c - Updated pgb_to_str() calls
+
+Testing
+-------
+- All existing tests pass (test_undo, test_0.2.0)
+- Verified large file loading (100+ lines)
+- Confirmed scrolling and cursor positioning at various positions
+- Validated buffer overflow protection
+- Editor compiles without warnings
+
+Backward Compatibility
+--------------------
+- This is a breaking change for external code using pgb_to_str() due to the 
+  added parameter. However, this was necessary to fix critical buffer overflow 
+  vulnerabilities.
+- All internal code has been updated to use the new signature.
+
+Security
+-------
+- Fixed critical buffer overflow vulnerability that could lead to memory corruption
+- Improved bounds checking throughout the codebase
+- Enhanced overall memory safety

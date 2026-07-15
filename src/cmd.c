@@ -15,7 +15,7 @@ enum result cmd_savefile(struct paged_gap_buffer* pgb, const char* path) {
 enum result cmd_exec(struct global* global, struct paged_gap_buffer* cmd_buf) {
     char buf[buf_capacity];
     char* option;
-    pgb_to_str(buf, cmd_buf);
+    pgb_to_str(buf, sizeof(buf), cmd_buf);
     pgb_clear(&global->msg);
 
     uint32_t i = 0;
