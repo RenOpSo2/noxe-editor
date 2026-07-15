@@ -18,6 +18,8 @@ void editor_init(struct global* global, const char* filepath) {
     pgb_init(&global->msg, &global->arena);
 
     global->filepath[0] = '\0';
+    global->undo_count = 0;
+    global->redo_count = 0;
 
     if (filepath) {
         strncpy(global->filepath, filepath, sizeof(global->filepath) - 1);

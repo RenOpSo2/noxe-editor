@@ -11,9 +11,24 @@
 #define buf_capacity (1 << 16)
 
 #define PAGE_CAPACITY 4096
+#define UNDO_STACK_SIZE 100
 
 // Ctrl+key macros
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+// Undo/redo action types
+enum action_type {
+    action_insert,
+    action_delete,
+    action_replace
+};
+
+struct action {
+    enum action_type type;
+    char data[256];  // Store inserted/deleted text
+    uint32_t pos;    // Cursor position
+    uint32_t len;    // Length of data
+};
 
 enum result {
     ok = 0,
@@ -53,6 +68,12 @@ struct global {
     // sel_anchor is fixed when selection starts; cursor end is computed live.
     enum bool has_selection;
     uint32_t sel_anchor; // byte offset where selection started
+
+    // Undo/redo stacks
+    struct action undo_stack[UNDO_STACK_SIZE];
+    struct action redo_stack[UNDO_STACK_SIZE];
+    uint32_t undo_count;
+    uint32_t redo_count;
 
     Arena arena;
 };

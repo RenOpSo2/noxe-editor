@@ -22,4 +22,10 @@ void     pgb_copy_range(struct paged_gap_buffer* dst, struct paged_gap_buffer* s
                         uint32_t from, uint32_t to, Arena* arena);
 void     pgb_delete_range(struct paged_gap_buffer* pgb, uint32_t from, uint32_t to);
 
+// Undo/redo functions
+void undo_perform(struct global* global);
+void redo_perform(struct global* global);
+void undo_save_insert(struct global* global, char ch, uint32_t pos);
+void undo_save_delete(struct global* global, char ch, uint32_t pos);
+
 #endif

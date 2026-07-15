@@ -10,11 +10,8 @@
 #define TCGETS 0x5401
 #define TCSETS 0x5402
 
-#define ALT_SCREEN_ON  "\x1b[?1049h"  /* switch to alternate screen bu
-ffer */
-#define RESET_ATTR     "\x1b[0m"      /* reset all text attributes */ 
-#define FG_WHITE       "\x1b[37m"     /* set foreground color to white
- */
+#define ALT_SCREEN_ON  "\x1b[?1049h"  /* switch to alternate screen buffer */
+#define RESET_ATTR     "\x1b[0m"      /* reset all text attributes */
 
 
 
@@ -39,8 +36,8 @@ void term_update(struct term* term) {
 
 
 void term_deinit() {
-    write(STDOUT_FILENO, "\x1b[0m", 4);
-    write(STDOUT_FILENO, "\x1b[?1049l", 8);
+    write(STDOUT_FILENO, "\x1b[0m\x1b[39;49m", sizeof("\x1b[0m\x1b[39;49m") - 1);
+    write(STDOUT_FILENO, "\x1b[?1049l", sizeof("\x1b[?1049l") - 1);
     struct termios term;
     ioctl(STDIN_FILENO, TCGETS, &term);
     term.c_lflag |= (ICANON | ECHO);
@@ -63,8 +60,8 @@ void term_init(void) {
     /* apply modified terminal settings */
     ioctl(STDIN_FILENO, TCSETS, &term);
 
-    /* enter alternate screen, reset colors, set default foreground */
-    write(STDOUT_FILENO, ALT_SCREEN_ON, 8);
-    write(STDOUT_FILENO, RESET_ATTR, 4);
-    write(STDOUT_FILENO, FG_WHITE, 5);
+    /* enter alternate screen, reset colors to default, hide cursor */
+    write(STDOUT_FILENO, ALT_SCREEN_ON, sizeof(ALT_SCREEN_ON) - 1);
+    write(STDOUT_FILENO, RESET_ATTR, sizeof(RESET_ATTR) - 1);
+    write(STDOUT_FILENO, "\x1b[?25l", sizeof("\x1b[?25l") - 1);
 }

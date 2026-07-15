@@ -2,6 +2,7 @@
 #include "nodes.h"
 #include "file.h"
 #include "term.h"
+#include "global.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -20,6 +21,44 @@ typedef enum {
 } esc_state;
 
 static esc_state esc = esc_none;
+
+// ---------------------------------------------------------------------------
+// Auto-indent helper
+// ---------------------------------------------------------------------------
+static void auto_indent(struct global* g) {
+    // Count leading whitespace on current line
+    uint32_t indent = 0;
+    struct page* p = g->text.active_page;
+    
+    // Move to start of current line
+    while (1) {
+        if (p->gap_start == 0 && !p->prev) break;
+        pgb_move_left(&g->text);
+        p = g->text.active_page;
+        if (p->data[p->gap_start] == '\n') {
+            pgb_move_right(&g->text);
+            break;
+        }
+    }
+    
+    // Count leading whitespace
+    while (1) {
+        p = g->text.active_page;
+        if (p->gap_start == 0 && !p->prev) break;
+        char ch = p->data[p->gap_start];
+        if (ch == ' ' || ch == '\t') {
+            indent++;
+            pgb_move_right(&g->text);
+        } else {
+            break;
+        }
+    }
+    
+    // Insert the same indentation on new line
+    for (uint32_t i = 0; i < indent; i++) {
+        pgb_insert(&g->text, ' ', &g->arena);
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Selection helpers
@@ -125,6 +164,22 @@ enum result input_update(struct global* global) {
             continue;
         }
 
+        // ---- Ctrl+U: undo -------------------------------------------------
+        if (ch == CTRL_KEY('u')) {
+            sel_clear(global);
+            undo_perform(global);
+            pgb_replace_str(&global->msg, "Undo.", &global->arena);
+            continue;
+        }
+
+        // ---- Ctrl+R: redo -------------------------------------------------
+        if (ch == CTRL_KEY('r')) {
+            sel_clear(global);
+            redo_perform(global);
+            pgb_replace_str(&global->msg, "Redo.", &global->arena);
+            continue;
+        }
+
         // ---- Ctrl+C: copy -------------------------------------------------
         if (ch == CTRL_KEY('c')) {
             if (global->has_selection) {
@@ -187,11 +242,18 @@ enum result input_update(struct global* global) {
         sel_clear(global); // any non-special key clears selection unless it's a replace
 
         if (ch == '\b' || ch == 127) {
+            uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_delete(&global->text);
+            undo_save_delete(global, ch, pos);
         } else if (ch == '\r') {
+            uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, '\n', &global->arena);
+            undo_save_insert(global, '\n', pos);
+            auto_indent(global);
         } else if (ch >= 32 || ch == '\t' || ch == '\n') {
+            uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, (char)ch, &global->arena);
+            undo_save_insert(global, (char)ch, pos);
         }
     }
     return ok;

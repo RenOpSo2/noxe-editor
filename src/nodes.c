@@ -1,4 +1,5 @@
 #include "nodes.h"
+#include "global.h"
 #include <string.h>
 
 static struct page* page_new(Arena* arena) {
@@ -268,4 +269,92 @@ void pgb_delete_range(struct paged_gap_buffer* pgb, uint32_t from, uint32_t to) 
     for (uint32_t i = 0; i < count; i++) {
         pgb_delete(pgb);
     }
+}
+
+// --- Undo/redo functions ---
+
+void undo_save_insert(struct global* global, char ch, uint32_t pos) {
+    if (global->undo_count >= UNDO_STACK_SIZE) return;
+    
+    struct action* act = &global->undo_stack[global->undo_count];
+    act->type = action_insert;
+    act->data[0] = ch;
+    act->len = 1;
+    act->pos = pos;
+    global->undo_count++;
+    
+    // Clear redo stack on new action
+    global->redo_count = 0;
+}
+
+void undo_save_delete(struct global* global, char ch, uint32_t pos) {
+    if (global->undo_count >= UNDO_STACK_SIZE) return;
+    
+    struct action* act = &global->undo_stack[global->undo_count];
+    act->type = action_delete;
+    act->data[0] = ch;
+    act->len = 1;
+    act->pos = pos;
+    global->undo_count++;
+    
+    // Clear redo stack on new action
+    global->redo_count = 0;
+}
+
+void undo_perform(struct global* global) {
+    if (global->undo_count == 0) return;
+    
+    struct action* act = &global->undo_stack[global->undo_count - 1];
+    
+    // Save to redo stack
+    if (global->redo_count < UNDO_STACK_SIZE) {
+        global->redo_stack[global->redo_count] = *act;
+        global->redo_count++;
+    }
+    
+    // Perform undo
+    pgb_move_to_pos(&global->text, act->pos);
+    
+    if (act->type == action_insert) {
+        // Undo insert = delete
+        for (uint32_t i = 0; i < act->len; i++) {
+            pgb_delete(&global->text);
+        }
+    } else if (act->type == action_delete) {
+        // Undo delete = insert
+        for (uint32_t i = 0; i < act->len; i++) {
+            pgb_insert(&global->text, act->data[i], &global->arena);
+        }
+    }
+    
+    global->undo_count--;
+}
+
+void redo_perform(struct global* global) {
+    if (global->redo_count == 0) return;
+    
+    struct action* act = &global->redo_stack[global->redo_count - 1];
+    
+    // Save back to undo stack
+    if (global->undo_count < UNDO_STACK_SIZE) {
+        global->undo_stack[global->undo_count] = *act;
+        global->undo_count++;
+    }
+    
+    // Perform redo
+    pgb_move_to_pos(&global->text, act->pos);
+    
+    if (act->type == action_insert) {
+        // Redo insert = insert
+        for (uint32_t i = 0; i < act->len; i++) {
+            pgb_insert(&global->text, act->data[i], &global->arena);
+        }
+    } else if (act->type == action_delete) {
+        // Redo delete = delete
+        for (uint32_t i = 0; i < act->len; i++) {
+            pgb_delete(&global->text);
+        }
+    }
+    
+    global->redo_count--;
 }
