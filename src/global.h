@@ -75,6 +75,12 @@ struct global {
     uint32_t undo_count;
     uint32_t redo_count;
 
+    // Search state
+    enum bool search_active;
+    char search_query[256];
+    uint32_t search_pos; // current match position
+    uint32_t search_match_count; // number of matches found
+
     Arena arena;
 };
 

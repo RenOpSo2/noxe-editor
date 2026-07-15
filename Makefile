@@ -17,10 +17,14 @@ OBJS      = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(filter-out $(SRCDIR)/cm
             $(BUILDDIR)/libmemory/arena.o
 DEPS      = $(OBJS:.o=.d) $(BUILDDIR)/test_undo.d
 
-# Test target
-TEST_SRCS = test_undo.c
-TEST_OBJS = $(BUILDDIR)/test_undo.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
-TEST_TARGET = $(BINDIR)/test_undo
+# Test targets
+TEST_UNDO_SRCS = test_undo.c
+TEST_UNDO_OBJS = $(BUILDDIR)/test_undo.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
+TEST_UNDO_TARGET = $(BINDIR)/test_undo
+
+TEST_020_SRCS = test_0.2.0.c
+TEST_020_OBJS = $(BUILDDIR)/test_0.2.0.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
+TEST_020_TARGET = $(BINDIR)/test_0.2.0
 
 # Phony targets
 .PHONY: all clean run format dirs test
@@ -38,14 +42,25 @@ $(TARGET): $(OBJS)
 	@$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 	@echo "Build complete: $@"
 
-# Build test
-$(TEST_TARGET): $(TEST_OBJS)
-	@echo "Linking test..."
-	@$(CC) $(CFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS)
+# Build undo test
+$(TEST_UNDO_TARGET): $(TEST_UNDO_OBJS)
+	@echo "Linking undo test..."
+	@$(CC) $(CFLAGS) $(TEST_UNDO_OBJS) -o $@ $(LDFLAGS)
 	@echo "Test build complete: $@"
 
-# Compile test object
+# Build 0.2.0 test
+$(TEST_020_TARGET): $(TEST_020_OBJS)
+	@echo "Linking 0.2.0 test..."
+	@$(CC) $(CFLAGS) $(TEST_020_OBJS) -o $@ $(LDFLAGS)
+	@echo "Test build complete: $@"
+
+# Compile test objects
 $(BUILDDIR)/test_undo.o: test_undo.c
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILDDIR)/test_0.2.0.o: test_0.2.0.c
 	@mkdir -p $(dir $@)
 	@echo "Compiling $<..."
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
@@ -103,7 +118,9 @@ help:
 	@echo "  check        : Static analysis with cppcheck"
 	@echo "  help         : Show this help"
 
-# Run test
-test: $(TEST_TARGET)
-	@echo "Running test..."
-	@$(TEST_TARGET)
+# Run tests
+test: $(TEST_UNDO_TARGET) $(TEST_020_TARGET)
+	@echo "Running test_undo..."
+	@$(BINDIR)/test_undo
+	@echo "Running test_0.2.0..."
+	@$(BINDIR)/test_0.2.0

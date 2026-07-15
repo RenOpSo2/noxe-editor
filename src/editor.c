@@ -20,6 +20,12 @@ void editor_init(struct global* global, const char* filepath) {
     global->filepath[0] = '\0';
     global->undo_count = 0;
     global->redo_count = 0;
+    
+    // Initialize search state
+    global->search_active = false;
+    global->search_query[0] = '\0';
+    global->search_pos = 0;
+    global->search_match_count = 0;
 
     if (filepath) {
         strncpy(global->filepath, filepath, sizeof(global->filepath) - 1);

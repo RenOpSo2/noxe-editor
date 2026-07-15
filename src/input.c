@@ -23,6 +23,11 @@ typedef enum {
 
 static esc_state esc = esc_none;
 
+// Search mode state
+static enum bool search_mode_active = false;
+static char search_input[256] = {0};
+static uint32_t search_input_len = 0;
+
 // ---------------------------------------------------------------------------
 // Auto-indent helper
 // ---------------------------------------------------------------------------
@@ -105,6 +110,45 @@ enum result input_update(struct global* global) {
     for (uint32_t i = 0; i < n; i++) {
         unsigned char ch = (unsigned char)buf[i];
 
+        // ---- Search mode handling --------------------------------------------
+        if (search_mode_active) {
+            if (ch == 0x1b) { // ESC - exit search mode
+                search_mode_active = false;
+                search_input_len = 0;
+                search_input[0] = '\0';
+                pgb_replace_str(&global->msg, "Search cancelled.", &global->arena);
+                continue;
+            } else if (ch == '\r' || ch == '\n') { // Enter - perform search
+                search_mode_active = false;
+                search_input[search_input_len] = '\0';
+                search_find(global, search_input);
+                char msg[512];
+                if (global->search_match_count > 0) {
+                    snprintf(msg, sizeof(msg), "Found %d matches for '%s'", 
+                             global->search_match_count, search_input);
+                } else {
+                    snprintf(msg, sizeof(msg), "No matches for '%s'", search_input);
+                }
+                pgb_replace_str(&global->msg, msg, &global->arena);
+                search_input_len = 0;
+                search_input[0] = '\0';
+                continue;
+            } else if (ch == '\b' || ch == 127) { // Backspace
+                if (search_input_len > 0) {
+                    search_input_len--;
+                    search_input[search_input_len] = '\0';
+                }
+                continue;
+            } else if (ch >= 32 && ch < 127) { // Printable character
+                if (search_input_len < sizeof(search_input) - 1) {
+                    search_input[search_input_len++] = ch;
+                    search_input[search_input_len] = '\0';
+                }
+                continue;
+            }
+            // Fall through to normal processing for other keys
+        }
+
         // ---- Escape sequence state machine --------------------------------
         if (esc == esc_none && ch == 0x1b) {
             esc = esc_got_esc;
@@ -173,11 +217,12 @@ enum result input_update(struct global* global) {
             continue;
         }
 
-        // ---- Ctrl+R: redo -------------------------------------------------
+        // ---- Ctrl+R: refresh screen (rendo fix) -----------------------------
         if (ch == CTRL_KEY('r')) {
             sel_clear(global);
-            redo_perform(global);
-            pgb_replace_str(&global->msg, "Redo.", &global->arena);
+            pgb_replace_str(&global->msg, "Screen refreshed.", &global->arena);
+            // Force redraw by calling draw_update directly
+            // The draw will happen in editor_update, but we clear the message first
             continue;
         }
 
@@ -236,6 +281,38 @@ enum result input_update(struct global* global) {
                 pgb_move_right(&global->text);
             }
             pgb_replace_str(&global->msg, "Selected all.", &global->arena);
+            continue;
+        }
+
+        // ---- Ctrl+F: search ---------------------------------------------------
+        if (ch == CTRL_KEY('f')) {
+            sel_clear(global);
+            search_mode_active = true;
+            search_input_len = 0;
+            search_input[0] = '\0';
+            pgb_replace_str(&global->msg, "Search: ", &global->arena);
+            continue;
+        }
+
+        // ---- Ctrl+N: search next ---------------------------------------------
+        if (ch == CTRL_KEY('n')) {
+            sel_clear(global);
+            search_next(global);
+            continue;
+        }
+
+        // ---- Ctrl+P: search previous -----------------------------------------
+        if (ch == CTRL_KEY('p')) {
+            sel_clear(global);
+            search_prev(global);
+            continue;
+        }
+
+        // ---- Ctrl+Y: redo ----------------------------------------------------
+        if (ch == CTRL_KEY('y')) {
+            sel_clear(global);
+            redo_perform(global);
+            pgb_replace_str(&global->msg, "Redo.", &global->arena);
             continue;
         }
 

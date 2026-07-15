@@ -47,6 +47,15 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     // Simple scroll: start from beginning for now
     while (full_buffer[pos] != '\0' && current_line < size_y) {
         if (full_buffer[pos] == '\n') {
+            // Draw line number (right-aligned, 5 chars wide, dim gray)
+            RB_ESC("\x1b[0m\x1b[38;5;244m");
+            char line_num_str[16];
+            int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", current_line + 1);
+            if (line_num_len > 0) {
+                rb_append(&rb, line_num_str, line_num_len);
+            }
+            RB_ESC("\x1b[0m\x1b[39;49m");
+            
             // Output the line
             uint32_t line_len = pos - line_start;
             if (line_len > 0) {
@@ -61,6 +70,15 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     
     // Handle last line if no trailing newline
     if (line_start < pos && current_line < size_y) {
+        // Draw line number
+        RB_ESC("\x1b[0m\x1b[38;5;244m");
+        char line_num_str[16];
+        int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", current_line + 1);
+        if (line_num_len > 0) {
+            rb_append(&rb, line_num_str, line_num_len);
+        }
+        RB_ESC("\x1b[0m\x1b[39;49m");
+        
         rb_append(&rb, full_buffer + line_start, pos - line_start);
         RB_ESC("\x1b[K\r\n");
         current_line++;
@@ -85,9 +103,9 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     cursor_line = temp_line;
     cursor_col = temp_col;
     
-    // Position cursor (account for status bar at line 1)
+    // Position cursor (account for status bar at line 1 and line number gutter)
     char cursor_seq[64];
-    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", cursor_line + 2, cursor_col + 1);
+    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", cursor_line + 2, cursor_col + 7);
     if (len > 0 && len < (int)sizeof(cursor_seq)) {
         rb_append(&rb, cursor_seq, len);
     }
@@ -110,7 +128,7 @@ static void draw_status(struct global* global)
     }
 
     /* Dim hints. */
-    RB_ESC("  \x1b[38;5;244mCtrl+S: Save  Ctrl+Q: Quit");
+    RB_ESC("  \x1b[38;5;244mCtrl+S: Save  Ctrl+Q: Quit  Ctrl+F: Search  Ctrl+R: Refresh");
 
     /* Flash message in yellow (if any). */
     uint32_t msg_len = 0;

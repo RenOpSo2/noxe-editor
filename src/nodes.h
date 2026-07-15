@@ -28,4 +28,10 @@ void redo_perform(struct global* global);
 void undo_save_insert(struct global* global, char ch, uint32_t pos);
 void undo_save_delete(struct global* global, char ch, uint32_t pos);
 
+// Search functions
+void search_init(struct global* global);
+void search_find(struct global* global, const char* query);
+void search_next(struct global* global);
+void search_prev(struct global* global);
+
 #endif
