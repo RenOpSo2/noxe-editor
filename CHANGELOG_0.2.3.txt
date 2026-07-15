@@ -1,0 +1,26 @@
+CHANGELOG for 0.2.3 Release
+====================================
+
+Security Fixes
+--------------
+
+### Critical: Unvalidated File Path Leading to Arbitrary File Read (NX-001)
+- **Issue**: The `file_read()` function passed user-supplied path strings directly to the `open()` system call without input validation or canonicalization. This allowed attackers to perform path traversal attacks (e.g. `../../etc/shadow`) and read arbitrary files or special device files.
+- **Fix**: Added `file_validate_path()` which uses `realpath()` to resolve relative path segments and symlinks, then checks that the resolved path points to a regular file (`S_ISREG`). In addition, `O_NOFOLLOW` is passed to `open()` to prevent TOCTOU symlink swaps.
+
+### Critical: Unvalidated File Path Leading to Arbitrary File Write (NX-002)
+- **Issue**: The `file_write()` function opened output files directly using `O_TRUNC`, destroying the original file before a successful write was assured, and created files with world-readable permissions (`0644`).
+- **Fix**: Implemented an atomic staging write pattern. The editor now writes output to a temporary sibling file created via `mkstemp()` (with secure `0600` permissions), executes `fsync()` to ensure data hits disk, and then atomically replaces the target file via `rename()`.
+
+### High: Unbounded Memory Allocation via Infinite Read Sources (NX-003)
+- **Issue**: The file read loop read data continuously until EOF without any limit check, risking memory exhaustion (OOM DoS) on extremely large files or infinite virtual streams (e.g. `/dev/zero`).
+- **Fix**: Added a file size check via `fstat()` prior to allocations. The editor now rejects files exceeding `MAX_FILE_SIZE` (64 MiB).
+
+Files Modified
+--------------
+- src/file.c - Added path validation, size pre-checks, and atomic write-to-temp staging pattern.
+
+Testing
+-------
+- Rebuilt using `make` and verified compilation clean.
+- Confirmed correct operation of file saving and loading.
