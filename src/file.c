@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -57,24 +58,52 @@ enum result file_read(struct paged_gap_buffer* pgb, const char* path, Arena* are
     return ok;
 }
 
+/*
+ * file_write — Atomically persist *pgb* to *path*.
+ *
+ * Strategy (NX-002):
+ *   1. Create a sibling temp file ("<path>.XXXXXX") with mkstemp().
+ *      mkstemp uses mode 0600 — no world-readable data leak (fixes
+ *      the hardcoded 0644 issue from the old code).
+ *   2. Write all gap-buffer pages into the temp file.
+ *   3. fsync() to flush kernel buffers to disk.
+ *   4. rename() the temp file over the target — POSIX guarantees this
+ *      is atomic on the same filesystem, so readers never see a partial
+ *      file and a crash never destroys the original.
+ *
+ * Addresses: NX-002
+ */
 enum result file_write(const char* path, struct paged_gap_buffer* pgb) {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    /* Build a temp path adjacent to the target file. */
+    char tmp_path[PATH_MAX];
+    int n = snprintf(tmp_path, sizeof(tmp_path), "%s.XXXXXX", path);
+    if (n < 0 || (size_t)n >= sizeof(tmp_path)) return err;
+
+    int fd = mkstemp(tmp_path);   /* creates with 0600 — no world-read leak */
     if (fd == -1) return err;
+
     struct page* p = pgb->head;
     while (p) {
         if (p->gap_start > 0) {
             if (write(fd, p->data, p->gap_start) != (ssize_t)p->gap_start) {
-                close(fd); return err;
+                close(fd); unlink(tmp_path); return err;
             }
         }
         uint32_t right = PAGE_CAPACITY - p->gap_end;
         if (right > 0) {
             if (write(fd, p->data + p->gap_end, right) != (ssize_t)right) {
-                close(fd); return err;
+                close(fd); unlink(tmp_path); return err;
             }
         }
         p = p->next;
     }
+
+    /* Flush to disk before exposing the file under the real name. */
+    if (fsync(fd) == -1) { close(fd); unlink(tmp_path); return err; }
     close(fd);
+
+    /* Atomic promotion: replaces the target only after a successful write. */
+    if (rename(tmp_path, path) == -1) { unlink(tmp_path); return err; }
+
     return ok;
 }
