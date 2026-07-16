@@ -24,3 +24,6 @@ paths-ignore:
   - prototype
   - "*.md"
   - "*.txt"
+
+# Build mode - use autobuild to let CodeQL detect the build system
+build-mode: autobuild
