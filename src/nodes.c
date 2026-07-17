@@ -377,6 +377,17 @@ void redo_perform(struct global* global) {
 
 // --- Search functions ---
 
+// Helper function to calculate total size of paged gap buffer
+static uint32_t pgb_total_size(struct paged_gap_buffer* pgb) {
+    uint32_t size = 0;
+    struct page* p = pgb->head;
+    while (p) {
+        size += p->gap_start + (PAGE_CAPACITY - p->gap_end);
+        p = p->next;
+    }
+    return size;
+}
+
 void search_init(struct global* global) {
     global->search_active = false;
     global->search_query[0] = '\0';
@@ -395,9 +406,46 @@ void search_find(struct global* global, const char* query) {
     strncpy(global->search_query, query, sizeof(global->search_query) - 1);
     global->search_query[sizeof(global->search_query) - 1] = '\0';
     
+    // Calculate required buffer size dynamically
+    uint32_t total_size = pgb_total_size(&global->text);
+    if (total_size == 0) {
+        global->search_active = false;
+        global->search_match_count = 0;
+        return;
+    }
+    
+    // Allocate buffer dynamically (+1 for null terminator)
+    char* full_buffer = arena_alloc(&global->arena, total_size + 1, 1);
+    if (!full_buffer) {
+        // Allocation failed - fall back to limited search
+        char fallback_buffer[buf_capacity];
+        pgb_to_str(fallback_buffer, sizeof(fallback_buffer), &global->text);
+        
+        uint32_t count = 0;
+        uint32_t first_match = (uint32_t)-1;
+        
+        char* ptr = fallback_buffer;
+        while ((ptr = strstr(ptr, query)) != NULL) {
+            uint32_t pos = ptr - fallback_buffer;
+            if (count == 0) {
+                first_match = pos;
+            }
+            count++;
+            ptr++;
+        }
+        
+        global->search_match_count = count;
+        global->search_active = (count > 0);
+        global->search_pos = first_match;
+        
+        if (first_match != (uint32_t)-1) {
+            pgb_move_to_pos(&global->text, first_match);
+        }
+        return;
+    }
+    
     // Convert buffer to string for searching
-    char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
+    pgb_to_str(full_buffer, total_size + 1, &global->text);
     
     uint32_t count = 0;
     uint32_t first_match = (uint32_t)-1;
@@ -426,8 +474,47 @@ void search_find(struct global* global, const char* query) {
 void search_next(struct global* global) {
     if (!global->search_active || global->search_query[0] == '\0') return;
     
-    char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
+    // Calculate required buffer size dynamically
+    uint32_t total_size = pgb_total_size(&global->text);
+    if (total_size == 0) return;
+    
+    // Allocate buffer dynamically (+1 for null terminator)
+    char* full_buffer = arena_alloc(&global->arena, total_size + 1, 1);
+    if (!full_buffer) {
+        // Allocation failed - fall back to limited search
+        char fallback_buffer[buf_capacity];
+        pgb_to_str(fallback_buffer, sizeof(fallback_buffer), &global->text);
+        
+        char* query = global->search_query;
+        uint32_t query_len = strlen(query);
+        
+        if (global->search_pos == (uint32_t)-1) {
+            char* ptr = strstr(fallback_buffer, query);
+            if (ptr) {
+                global->search_pos = ptr - fallback_buffer;
+                pgb_move_to_pos(&global->text, global->search_pos);
+            }
+            return;
+        }
+        
+        uint32_t start_pos = global->search_pos + query_len;
+        char* ptr = strstr(fallback_buffer + start_pos, query);
+        
+        if (ptr) {
+            global->search_pos = ptr - fallback_buffer;
+            pgb_move_to_pos(&global->text, global->search_pos);
+        } else {
+            ptr = strstr(fallback_buffer, query);
+            if (ptr) {
+                global->search_pos = ptr - fallback_buffer;
+                pgb_move_to_pos(&global->text, global->search_pos);
+            }
+        }
+        return;
+    }
+    
+    // Convert buffer to string for searching
+    pgb_to_str(full_buffer, total_size + 1, &global->text);
     
     char* query = global->search_query;
     uint32_t query_len = strlen(query);
@@ -463,8 +550,66 @@ void search_next(struct global* global) {
 void search_prev(struct global* global) {
     if (!global->search_active || global->search_query[0] == '\0') return;
     
-    char full_buffer[buf_capacity];
-    pgb_to_str(full_buffer, sizeof(full_buffer), &global->text);
+    // Calculate required buffer size dynamically
+    uint32_t total_size = pgb_total_size(&global->text);
+    if (total_size == 0) return;
+    
+    // Allocate buffer dynamically (+1 for null terminator)
+    char* full_buffer = arena_alloc(&global->arena, total_size + 1, 1);
+    if (!full_buffer) {
+        // Allocation failed - fall back to limited search
+        char fallback_buffer[buf_capacity];
+        pgb_to_str(fallback_buffer, sizeof(fallback_buffer), &global->text);
+        
+        char* query = global->search_query;
+        
+        if (global->search_pos == (uint32_t)-1) {
+            uint32_t last_pos = 0;
+            char* ptr = fallback_buffer;
+            while ((ptr = strstr(ptr, query)) != NULL) {
+                last_pos = ptr - fallback_buffer;
+                ptr++;
+            }
+            if (last_pos > 0) {
+                global->search_pos = last_pos;
+                pgb_move_to_pos(&global->text, global->search_pos);
+            }
+            return;
+        }
+        
+        uint32_t current_pos = global->search_pos;
+        uint32_t best_match = (uint32_t)-1;
+        
+        char* ptr = fallback_buffer;
+        while ((ptr = strstr(ptr, query)) != NULL) {
+            uint32_t pos = ptr - fallback_buffer;
+            if (pos < current_pos) {
+                best_match = pos;
+                break;
+            }
+            ptr++;
+        }
+        
+        if (best_match != (uint32_t)-1) {
+            global->search_pos = best_match;
+            pgb_move_to_pos(&global->text, global->search_pos);
+        } else {
+            uint32_t last_pos = 0;
+            ptr = fallback_buffer;
+            while ((ptr = strstr(ptr, query)) != NULL) {
+                last_pos = ptr - fallback_buffer;
+                ptr++;
+            }
+            if (last_pos > 0) {
+                global->search_pos = last_pos;
+                pgb_move_to_pos(&global->text, global->search_pos);
+            }
+        }
+        return;
+    }
+    
+    // Convert buffer to string for searching
+    pgb_to_str(full_buffer, total_size + 1, &global->text);
     
     char* query = global->search_query;
     
