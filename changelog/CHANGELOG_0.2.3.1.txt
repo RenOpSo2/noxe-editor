@@ -1,0 +1,26 @@
+CHANGELOG for 0.2.3.1 Release
+====================================
+
+Bug Fixes
+------------
+
+### Critical: Search Buffer Limitation to 64KB Files
+- **Issue**: Search functionality was limited to files smaller than 64KB due to fixed-size buffer allocation (`char full_buffer[buf_capacity]` where buf_capacity = 65536). This meant search operations would only work on the first 64KB of any file, making search essentially broken for larger files that the editor can load (up to 64MB).
+- **Fix**: Implemented dynamic allocation for search buffers based on actual file size. Added `pgb_total_size()` helper function to calculate the total size of the paged gap buffer. Updated `search_find()`, `search_next()`, and `search_prev()` to allocate search buffers dynamically using `arena_alloc()`. Added graceful fallback to 64KB buffer if dynamic allocation fails, ensuring backward compatibility.
+
+Files Modified
+--------------
+- src/nodes.c - Added dynamic allocation for search operations, added pgb_total_size() helper function
+
+Testing
+-------
+- Created test case `test_search_large.c` to verify search functionality on files larger than 64KB
+- Tested with 2000-line file (~200KB) - search successfully found all matches
+- Verified search_next() and search_prev() work correctly with dynamic allocation
+- Confirmed graceful fallback when allocation fails
+
+Impact
+------
+- Search functionality now works correctly for files up to the 64MB limit (as defined in file.c)
+- Users can now search through large files without limitations
+- Maintains backward compatibility with graceful degradation on allocation failure
