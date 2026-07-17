@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define VERSION "0.2.3-nxo"
+#define VERSION "0.2.3.1-stable"
 
 void print_version() {
     printf("Noxe-Editor version %s\n", VERSION);
-    printf("MIT License\n");
+    printf("GPL-3 License\n");
     printf("Copyright (c) 2026 Revan Aprian\n");
 }
 
