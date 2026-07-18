@@ -3,6 +3,7 @@
 #include "file.h"
 #include "term.h"
 #include "global.h"
+#include "config.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -339,7 +340,9 @@ enum result input_update(struct global* global) {
             uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, '\n', &global->arena);
             undo_save_insert(global, '\n', pos);
-            auto_indent(global);
+            if (config_get_bool("auto_indent", 1)) {
+                auto_indent(global);
+            }
         } else if (ch >= 32 || ch == '\t' || ch == '\n') {
             uint32_t pos = pgb_cursor_pos(&global->text);
             pgb_insert(&global->text, (char)ch, &global->arena);

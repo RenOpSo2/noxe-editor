@@ -93,14 +93,16 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     while (full_buffer[pos] != '\0' && rendered_line < size_y) {
         if (full_buffer[pos] == '\n') {
             if (buffer_line >= scroll_offset) {
-                // Draw line number (right-aligned, 5 chars wide, dim gray)
-                RB_ESC("\x1b[0m\x1b[38;5;244m");
-                char line_num_str[16];
-                int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
-                if (line_num_len > 0) {
-                    rb_append(&rb, line_num_str, line_num_len);
+                // Draw line number if enabled
+                if (config_get_bool("show_line_numbers", 1)) {
+                    RB_ESC("\x1b[0m\x1b[38;5;244m");
+                    char line_num_str[16];
+                    int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
+                    if (line_num_len > 0) {
+                        rb_append(&rb, line_num_str, line_num_len);
+                    }
+                    RB_ESC("\x1b[0m\x1b[39;49m");
                 }
-                RB_ESC("\x1b[0m\x1b[39;49m");
                 
                 // Output the line with tab expansion
                 uint32_t col = 0;
@@ -128,14 +130,16 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     
     // Handle last line if no trailing newline
     if (line_start < pos && buffer_line >= scroll_offset && rendered_line < size_y) {
-        // Draw line number
-        RB_ESC("\x1b[0m\x1b[38;5;244m");
-        char line_num_str[16];
-        int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
-        if (line_num_len > 0) {
-            rb_append(&rb, line_num_str, line_num_len);
+        // Draw line number if enabled
+        if (config_get_bool("show_line_numbers", 1)) {
+            RB_ESC("\x1b[0m\x1b[38;5;244m");
+            char line_num_str[16];
+            int line_num_len = snprintf(line_num_str, sizeof(line_num_str), "%5d ", buffer_line + 1);
+            if (line_num_len > 0) {
+                rb_append(&rb, line_num_str, line_num_len);
+            }
+            RB_ESC("\x1b[0m\x1b[39;49m");
         }
-        RB_ESC("\x1b[0m\x1b[39;49m");
         
         // Output last line with tab expansion
         uint32_t col = 0;
@@ -165,7 +169,8 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     // Adjust cursor line for scroll offset
     uint32_t visible_cursor_line = cursor_line - scroll_offset;
     char cursor_seq[64];
-    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", visible_cursor_line + 2, cursor_col + 7);
+    int gutter_offset = config_get_bool("show_line_numbers", 1) ? 7 : 1;
+    int len = snprintf(cursor_seq, sizeof(cursor_seq), "\x1b[%d;%dH", visible_cursor_line + 2, cursor_col + gutter_offset);
     if (len > 0 && len < (int)sizeof(cursor_seq)) {
         rb_append(&rb, cursor_seq, len);
     }

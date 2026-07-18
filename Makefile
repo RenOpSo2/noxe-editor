@@ -134,7 +134,7 @@ help:
 	@echo "  help         : Show this help"
 
 # Run tests
-test: $(TEST_UNDO_TARGET) $(TEST_020_TARGET) $(TEST_CONFIG_TARGET)
+test: dirs $(TEST_UNDO_TARGET) $(TEST_020_TARGET) $(TEST_CONFIG_TARGET)
 	@echo "Running test_undo..."
 	@$(BINDIR)/test_undo
 	@echo "Running test_0.2.0..."

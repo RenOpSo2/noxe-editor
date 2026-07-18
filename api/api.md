@@ -21,6 +21,8 @@ Saat ini, Noxe Editor mendukung beberapa opsi konfigurasi berikut:
 | :--- | :--- | :--- | :--- |
 | `tabsize` | Angka (Number) | `4` | Menentukan lebar visual karakter tab (`\t`) ketika ditampilkan di layar editor (antara 1 s.d 16). |
 | `mouse` | Boolean | `true` | Mengaktifkan/menonaktifkan fungsionalitas pendukung mouse (nilai yang valid: `true`, `false`, `1`, `0`). |
+| `show_line_numbers` | Boolean | `true` | Menampilkan/menyembunyikan kolom nomor baris di sebelah kiri layar (gutter). |
+| `auto_indent` | Boolean | `true` | Mengaktifkan/menonaktifkan indentasi otomatis ke baris baru saat menekan `Enter`. |
 
 ---
 
@@ -32,7 +34,9 @@ Format penulisan di dalam file `./noxe.json` atau `~/.noxerc` wajib menggunakan 
 ```json
 {
   "tabsize": 4,
-  "mouse": true
+  "mouse": true,
+  "show_line_numbers": true,
+  "auto_indent": true
 }
 ```
 

@@ -43,7 +43,17 @@ void config_init(void) {
     config_entries[1].type = CONFIG_TYPE_BOOL;
     config_entries[1].bool_val = 1; // true
     
-    config_entry_count = 2;
+    // Set default show_line_numbers
+    strncpy(config_entries[2].key, "show_line_numbers", sizeof(config_entries[2].key) - 1);
+    config_entries[2].type = CONFIG_TYPE_BOOL;
+    config_entries[2].bool_val = 1; // true
+
+    // Set default auto_indent
+    strncpy(config_entries[3].key, "auto_indent", sizeof(config_entries[3].key) - 1);
+    config_entries[3].type = CONFIG_TYPE_BOOL;
+    config_entries[3].bool_val = 1; // true
+
+    config_entry_count = 4;
 }
 
 // Find entry index by key
@@ -220,12 +230,12 @@ int config_validate(const char* key, const char* raw_val, SchemaError* err_out) 
             }
             return 0;
         }
-    } else if (strcmp(key, "mouse") == 0) {
+    } else if (strcmp(key, "mouse") == 0 || strcmp(key, "show_line_numbers") == 0 || strcmp(key, "auto_indent") == 0) {
         if (strcmp(raw_val, "true") != 0 && strcmp(raw_val, "false") != 0 &&
             strcmp(raw_val, "1") != 0 && strcmp(raw_val, "0") != 0) {
             if (err_out) {
                 strncpy(err_out->key, key, sizeof(err_out->key) - 1);
-                strncpy(err_out->error_msg, "mouse must be boolean (true/false or 1/0)", sizeof(err_out->error_msg) - 1);
+                strncpy(err_out->error_msg, "value must be boolean (true/false or 1/0)", sizeof(err_out->error_msg) - 1);
             }
             return 0;
         }
@@ -267,7 +277,7 @@ void config_load(int argc, char* argv[]) {
             if (config_validate(key, val, &err)) {
                 if (strcmp(key, "tabsize") == 0) {
                     config_set_number(key, atof(val));
-                } else if (strcmp(key, "mouse") == 0) {
+                } else if (strcmp(key, "mouse") == 0 || strcmp(key, "show_line_numbers") == 0 || strcmp(key, "auto_indent") == 0) {
                     config_set_bool(key, (strcmp(val, "true") == 0 || strcmp(val, "1") == 0));
                 } else {
                     config_set_string(key, val);
