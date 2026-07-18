@@ -25,6 +25,9 @@ void config_set_number(const char* key, double val);
 void config_set_bool(const char* key, int val);
 void config_set_string(const char* key, const char* val);
 
+// Set the active config file path explicitly
+void config_set_filepath(const char* path);
+
 // Check if config file has changed, reload if so
 void config_watch(struct global* global);
 

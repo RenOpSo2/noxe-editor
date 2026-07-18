@@ -28,6 +28,7 @@ static int config_entry_count = 0;
 
 static char active_config_path[512] = "";
 static time_t last_config_mtime = 0;
+static int config_loading = 0;
 
 // Default config values setup
 void config_init(void) {
@@ -145,6 +146,7 @@ static void parse_json(const char* json_str) {
 
 // Write/update config file
 static void write_config_file(void) {
+    if (config_loading) return;
     if (active_config_path[0] == '\0') {
         // Default to ./noxe.json if none active
         strncpy(active_config_path, "./noxe.json", sizeof(active_config_path) - 1);
@@ -198,7 +200,9 @@ static int load_config_file(const char* path) {
     buf[read_bytes] = '\0';
     fclose(f);
     
+    config_loading = 1;
     parse_json(buf);
+    config_loading = 0;
     free(buf);
     
     strncpy(active_config_path, path, sizeof(active_config_path) - 1);
@@ -244,6 +248,7 @@ int config_validate(const char* key, const char* raw_val, SchemaError* err_out) 
 }
 
 void config_load(int argc, char* argv[]) {
+    config_loading = 1;
     // 1. Initialise defaults (already done, but call config_init just in case)
     config_init();
     
@@ -261,7 +266,7 @@ void config_load(int argc, char* argv[]) {
             char home_rc[512];
             snprintf(home_rc, sizeof(home_rc), "%s/.noxerc", home);
             if (access(home_rc, F_OK) == 0) {
-                load_config_file(home_rc);
+                loaded = load_config_file(home_rc);
             }
         }
     }
@@ -287,6 +292,7 @@ void config_load(int argc, char* argv[]) {
             }
         }
     }
+    config_loading = 0;
 }
 
 double config_get_number(const char* key, double default_val) {
@@ -356,6 +362,11 @@ void config_set_string(const char* key, const char* val) {
     config_entries[idx].type = CONFIG_TYPE_STRING;
     strncpy(config_entries[idx].string_val, val, sizeof(config_entries[idx].string_val) - 1);
     write_config_file();
+}
+
+void config_set_filepath(const char* path) {
+    strncpy(active_config_path, path, sizeof(active_config_path) - 1);
+    active_config_path[sizeof(active_config_path) - 1] = '\0';
 }
 
 void config_watch(struct global* global) {

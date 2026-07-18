@@ -47,7 +47,8 @@ int main() {
     printf("Test 3 (CLI Override): Passed.\n");
 
     // Test 4: Set and file write
-    // This will write to ./noxe.json
+    // Force output to ./noxe.json for test isolation
+    config_set_filepath("./noxe.json");
     config_set_number("tabsize", 2);
     config_set_bool("mouse", 1);
     config_set_bool("show_line_numbers", 0);
