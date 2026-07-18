@@ -8,15 +8,18 @@ New Features
 - **Feature**: Added a lightweight, dependency-free configuration system utilizing JSON format. Supports reading settings from local `./noxe.json` or user home `~/.noxerc` directory.
 - **Config Key "tabsize"**: Integrates dynamically with the render engine inside `src/draw.c`. Tab characters (`\t`) are expanded visually to align with tabsize boundaries, and the cursor positioning handles the variable tab size seamlessly.
 - **Config Key "mouse"**: Validates boolean config key `mouse` for future integration or scripting capabilities.
-- **Command Line Overrides**: Config options can be overridden dynamically at startup using flags like `--tabsize 8` or `--mouse false`.
+- **Config Key "show_line_numbers"**: Allows users to conditionally show/hide the line number gutter column on the left. The cursor rendering automatically adjusts to alignment offsets.
+- **Config Key "auto_indent"**: Toggles automatic indentation of whitespace from the previous line when pressing Enter.
+- **Command Line Overrides**: Config options can be overridden dynamically at startup using flags like `--tabsize 8` or `--mouse false` or `--show_line_numbers false`.
 - **Live Watch & Auto-Reload**: A filesystem checker is built-in. If the configuration file is updated externally while the editor is running, it automatically detects changes, re-parses settings, and flashes a notification on the status bar.
-- **Data Validation**: Schema-checking enforces positive number limits on `tabsize` and strict boolean formats on `mouse` to prevent bad config files from breaking the UI.
+- **Data Validation**: Schema-checking enforces positive number limits on `tabsize` and strict boolean formats on `mouse`, `show_line_numbers`, and `auto_indent` to prevent bad config files from breaking the UI.
 
 Files Modified / Created
 -----------------------
 - src/config.h - Config header declaring APIs
 - src/config.c - Implementation of JSON parser, validator, CLI overrides, and file watcher
-- src/draw.c - Render engine update to support dynamic tabsize mapping
+- src/draw.c - Render engine update to support dynamic tabsize mapping and conditional line numbers
+- src/input.c - Input handler update to toggle auto indentation on Enter keypress
 - src/main.c - Initialization of configuration and active loop watcher
 - api/api.md - Documentation of configuration APIs in Indonesian
 - test_config.c - Unit test suite to verify configuration behaviour
