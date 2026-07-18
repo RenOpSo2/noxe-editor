@@ -26,6 +26,10 @@ TEST_020_SRCS = test_0.2.0.c
 TEST_020_OBJS = $(BUILDDIR)/test_0.2.0.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
 TEST_020_TARGET = $(BINDIR)/test_0.2.0
 
+TEST_CONFIG_SRCS = test_config.c
+TEST_CONFIG_OBJS = $(BUILDDIR)/test_config.o $(filter-out $(BUILDDIR)/main.o, $(OBJS))
+TEST_CONFIG_TARGET = $(BINDIR)/test_config
+
 # Phony targets
 .PHONY: all clean run format dirs test
 
@@ -54,6 +58,12 @@ $(TEST_020_TARGET): $(TEST_020_OBJS)
 	@$(CC) $(CFLAGS) $(TEST_020_OBJS) -o $@ $(LDFLAGS)
 	@echo "Test build complete: $@"
 
+# Build config test
+$(TEST_CONFIG_TARGET): $(TEST_CONFIG_OBJS)
+	@echo "Linking config test..."
+	@$(CC) $(CFLAGS) $(TEST_CONFIG_OBJS) -o $@ $(LDFLAGS)
+	@echo "Test build complete: $@"
+
 # Compile test objects
 $(BUILDDIR)/test_undo.o: test_undo.c
 	@mkdir -p $(dir $@)
@@ -61,6 +71,11 @@ $(BUILDDIR)/test_undo.o: test_undo.c
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILDDIR)/test_0.2.0.o: test_0.2.0.c
+	@mkdir -p $(dir $@)
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILDDIR)/test_config.o: test_config.c
 	@mkdir -p $(dir $@)
 	@echo "Compiling $<..."
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
@@ -119,8 +134,10 @@ help:
 	@echo "  help         : Show this help"
 
 # Run tests
-test: $(TEST_UNDO_TARGET) $(TEST_020_TARGET)
+test: $(TEST_UNDO_TARGET) $(TEST_020_TARGET) $(TEST_CONFIG_TARGET)
 	@echo "Running test_undo..."
 	@$(BINDIR)/test_undo
 	@echo "Running test_0.2.0..."
 	@$(BINDIR)/test_0.2.0
+	@echo "Running test_config..."
+	@$(BINDIR)/test_config

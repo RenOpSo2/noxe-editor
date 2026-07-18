@@ -2,6 +2,7 @@
 #include "nodes.h"
 #include "render_buffer.h"
 #include "syntax.h"
+#include "config.h"
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -59,6 +60,9 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
         if (full_buffer[i] == '\n') {
             temp_line++;
             temp_col = 0;
+        } else if (full_buffer[i] == '\t') {
+            int tab_size = (int)config_get_number("tabsize", 4);
+            temp_col += tab_size - (temp_col % tab_size);
         } else {
             temp_col++;
         }
@@ -98,10 +102,20 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
                 }
                 RB_ESC("\x1b[0m\x1b[39;49m");
                 
-                // Output the line
-                uint32_t line_len = pos - line_start;
-                if (line_len > 0) {
-                    rb_append(&rb, full_buffer + line_start, line_len);
+                // Output the line with tab expansion
+                uint32_t col = 0;
+                for (uint32_t j = line_start; j < pos; j++) {
+                    if (full_buffer[j] == '\t') {
+                        int tab_size = (int)config_get_number("tabsize", 4);
+                        int num_spaces = tab_size - (col % tab_size);
+                        for (int s = 0; s < num_spaces; s++) {
+                            rb_append(&rb, " ", 1);
+                            col++;
+                        }
+                    } else {
+                        rb_append(&rb, &full_buffer[j], 1);
+                        col++;
+                    }
                 }
                 RB_ESC("\x1b[K\r\n");
                 rendered_line++;
@@ -123,7 +137,21 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
         }
         RB_ESC("\x1b[0m\x1b[39;49m");
         
-        rb_append(&rb, full_buffer + line_start, pos - line_start);
+        // Output last line with tab expansion
+        uint32_t col = 0;
+        for (uint32_t j = line_start; j < pos; j++) {
+            if (full_buffer[j] == '\t') {
+                int tab_size = (int)config_get_number("tabsize", 4);
+                int num_spaces = tab_size - (col % tab_size);
+                for (int s = 0; s < num_spaces; s++) {
+                    rb_append(&rb, " ", 1);
+                    col++;
+                }
+            } else {
+                rb_append(&rb, &full_buffer[j], 1);
+                col++;
+            }
+        }
         RB_ESC("\x1b[K\r\n");
         rendered_line++;
     }
