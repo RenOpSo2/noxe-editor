@@ -1,91 +1,66 @@
-# Dokumentasi API Config System
+# Panduan Konfigurasi Noxe Editor (User Guide)
 
-Dokumentasi ini menjelaskan cara menggunakan API Config System di dalam codebase Noxe Editor.
-
----
-
-## 🛠️ API Reference (`src/config.h`)
-
-Untuk menggunakan fungsi-fungsi ini di file C baru, pastikan Anda menyertakan header berikut:
-```c
-#include "config.h"
-```
-
-### 1. Inisialisasi & Loading
-
-#### `config_init`
-Menginisialisasi konfigurasi awal dengan nilai default (`tabsize` = 4, `mouse` = true).
-```c
-void config_init(void);
-```
-
-#### `config_load`
-Membaca konfigurasi dari file lokal `./noxe.json`, file global `~/.noxerc` (jika ada), serta argumen baris perintah (CLI).
-```c
-void config_load(int argc, char* argv[]);
-```
-* **Contoh penggunaan di CLI**: `./bin/noxe --tabsize 8 --mouse false`
+Panduan ini menjelaskan cara melakukan konfigurasi dan menggunakan Config System pada Noxe Editor untuk menyesuaikan kenyamanan mengetik Anda.
 
 ---
 
-### 2. Membaca Konfigurasi (Getters)
+## 📂 Lokasi File Konfigurasi
 
-Untuk mengambil nilai konfigurasi secara dinamis, gunakan fungsi getter berikut sesuai tipe data yang dibutuhkan. Jika key tidak ditemukan atau tipe data tidak cocok, fungsi akan mengembalikan nilai default yang Anda tentukan.
+Noxe Editor mendukung pembacaan konfigurasi secara otomatis dari dua lokasi berikut (diutamakan file lokal terlebih dahulu):
 
-#### `config_get_number`
-Mengambil nilai konfigurasi bertipe numeric (double).
-```c
-double config_get_number(const char* key, double default_val);
-```
-* **Contoh**: `int tab_size = (int)config_get_number("tabsize", 4);`
-
-#### `config_get_bool`
-Mengambil nilai konfigurasi bertipe boolean (int 0 atau 1).
-```c
-int config_get_bool(const char* key, int default_val);
-```
-* **Contoh**: `int use_mouse = config_get_bool("mouse", 1);`
-
-#### `config_get_string`
-Mengambil nilai konfigurasi bertipe string.
-```c
-const char* config_get_string(const char* key, const char* default_val);
-```
-* **Contoh**: `const char* theme = config_get_string("theme", "default");`
+1. **Lokal (Project-level)**: `./noxe.json` (file `noxe.json` di direktori tempat Anda menjalankan editor).
+2. **Global (User-level)**: `~/.noxerc` (file `.noxerc` di direktori home pengguna Anda).
 
 ---
 
-### 3. Mengubah Konfigurasi (Setters)
+## ⚙️ Opsi Konfigurasi yang Didukung
 
-Mengubah nilai konfigurasi di memori sekaligus menyimpannya (menserialisasikannya) ke file konfigurasi aktif secara otomatis.
+Saat ini, Noxe Editor mendukung beberapa opsi konfigurasi berikut:
 
-#### `config_set_number`
-```c
-void config_set_number(const char* key, double val);
-```
+| Nama Kunci | Tipe Data | Nilai Default | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| `tabsize` | Angka (Number) | `4` | Menentukan lebar visual karakter tab (`\t`) ketika ditampilkan di layar editor (antara 1 s.d 16). |
+| `mouse` | Boolean | `true` | Mengaktifkan/menonaktifkan fungsionalitas pendukung mouse (nilai yang valid: `true`, `false`, `1`, `0`). |
 
-#### `config_set_bool`
-```c
-void config_set_bool(const char* key, int val);
-```
+---
 
-#### `config_set_string`
-```c
-void config_set_string(const char* key, const char* val);
+## 📝 Format File JSON
+
+Format penulisan di dalam file `./noxe.json` atau `~/.noxerc` wajib menggunakan standar JSON yang valid. 
+
+**Contoh isi file konfigurasi:**
+```json
+{
+  "tabsize": 4,
+  "mouse": true
+}
 ```
 
 ---
 
-### 4. Live Reloading & Validation
+## 🚀 Penggunaan via CLI (Command Line Interface)
 
-#### `config_watch`
-Mengecek perubahan modifikasi waktu (`mtime`) pada file config secara real-time. Jika file berubah di disk, fungsi ini otomatis me-reload nilainya ke memori dan menampilkan notifikasi di status bar. Panggil ini di main loop program.
-```c
-void config_watch(struct global* global);
-```
+Anda juga bisa menimpa (override) pengaturan konfigurasi secara langsung melalui argumen baris perintah saat membuka Noxe Editor. Argumen CLI ini memiliki prioritas tertinggi dibandingkan file JSON.
 
-#### `config_validate`
-Melakukan pengecekan validasi tipe data dari input string raw sebelum dimasukkan ke konfigurasi. Mengembalikan `1` jika valid, atau `0` jika ada kesalahan schema.
-```c
-int config_validate(const char* key, const char* raw_val, SchemaError* err_out);
-```
+### Contoh Perintah:
+
+* **Membuka file dengan ukuran tab = 8:**
+  ```bash
+  ./bin/noxe --tabsize 8 nama_file.txt
+  ```
+
+* **Mematikan fungsi mouse dan set tab = 2:**
+  ```bash
+  ./bin/noxe --tabsize 2 --mouse false nama_file.txt
+  ```
+
+---
+
+## 🔄 Pembaruan Otomatis (Live Watch / Auto-Reload)
+
+Noxe Editor memiliki fitur pemantauan file konfigurasi secara langsung. 
+
+Jika Anda mengubah pengaturan di dalam file `./noxe.json` atau `~/.noxerc` menggunakan aplikasi lain selagi Noxe Editor sedang terbuka, Noxe Editor akan:
+1. Mendeteksi perubahan berkas secara otomatis.
+2. Memuat ulang (re-parse) pengaturan baru tanpa perlu menutup editor.
+3. Menampilkan pesan `"Configuration reloaded automatically."` pada status bar bagian bawah layar.
