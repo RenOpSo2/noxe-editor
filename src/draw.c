@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 static RenderBuffer rb;
+static uint32_t last_scroll_offset = 0;
 
 #define RB_ESC(s) rb_append(&rb, s, sizeof(s) - 1)
 
@@ -83,6 +84,7 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y) {
     if (cursor_line >= size_y) {
         scroll_offset = cursor_line - size_y + 1;
     }
+    last_scroll_offset = scroll_offset;
     
     // Render lines starting from scroll offset
     uint32_t rendered_line = 0;
@@ -247,4 +249,8 @@ void draw_deinit(void)
     RB_ESC("\x1b[?1049l");
 
     rb_flush(&rb);
+}
+
+uint32_t draw_get_scroll_offset(void) {
+    return last_scroll_offset;
 }

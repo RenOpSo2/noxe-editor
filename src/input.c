@@ -4,6 +4,7 @@
 #include "term.h"
 #include "global.h"
 #include "config.h"
+#include "draw.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -11,7 +12,8 @@
 
 // ---------------------------------------------------------------------------
 // Escape sequence parser
-// Handles plain arrows (\x1b[A-D) and Shift+arrows (\x1b[1;2A-D).
+// Handles plain arrows (\x1b[A-D), Shift+arrows (\x1b[1;2A-D),
+// and X10 mouse click events (\x1b[M + 3 bytes).
 // ---------------------------------------------------------------------------
 typedef enum {
     esc_none,
@@ -20,14 +22,60 @@ typedef enum {
     esc_got_1,       // received \x1b[1
     esc_got_semi,    // received \x1b[1;
     esc_got_2,       // received \x1b[1;2
+    esc_got_M,       // received \x1b[M - waiting for button byte
+    esc_got_M_btn,   // got button byte - waiting for x byte
+    esc_got_M_x,     // got x byte - waiting for y byte
 } esc_state;
 
 static esc_state esc = esc_none;
+static unsigned char mouse_btn_byte = 0;
+static unsigned char mouse_x_byte = 0;
 
 // Search mode state
 static enum bool search_mode_active = false;
 static char search_input[256] = {0};
 static uint32_t search_input_len = 0;
+
+// ---------------------------------------------------------------------------
+// Mouse click helper — move cursor to screen (col, row)
+// ---------------------------------------------------------------------------
+static void mouse_click_move(struct global* global, uint32_t screen_col, uint32_t screen_row) {
+    // Row 1 = status bar, Row 2+ = text area
+    if (screen_row < 2) return;
+
+    uint32_t scroll_offset = draw_get_scroll_offset();
+    uint32_t target_line = (screen_row - 2) + scroll_offset;
+    int gutter = config_get_bool("show_line_numbers", 1) ? 6 : 0;
+    int target_col = (int)screen_col - 1 - gutter;
+    if (target_col < 0) target_col = 0;
+
+    // Walk the buffer to find the byte offset for (target_line, target_col)
+    char buffer[buf_capacity];
+    pgb_to_str(buffer, sizeof(buffer), &global->text);
+
+    uint32_t line = 0;
+    uint32_t col = 0;
+    uint32_t pos = 0;
+
+    // Skip to target line
+    while (buffer[pos] != '\0' && line < target_line) {
+        if (buffer[pos] == '\n') line++;
+        pos++;
+    }
+
+    // Now walk columns on the target line, accounting for tabs
+    while (buffer[pos] != '\0' && buffer[pos] != '\n' && (int)col < target_col) {
+        if (buffer[pos] == '\t') {
+            int tab_size = (int)config_get_number("tabsize", 4);
+            col += tab_size - (col % tab_size);
+        } else {
+            col++;
+        }
+        pos++;
+    }
+
+    pgb_move_to_pos(&global->text, pos);
+}
 
 // ---------------------------------------------------------------------------
 // Auto-indent helper
@@ -165,6 +213,8 @@ enum result input_update(struct global* global) {
             if (ch == 'B') { sel_clear(global); pgb_move_down(&global->text);  esc = esc_none; continue; }
             if (ch == 'C') { sel_clear(global); pgb_move_right(&global->text); esc = esc_none; continue; }
             if (ch == 'D') { sel_clear(global); pgb_move_left(&global->text);  esc = esc_none; continue; }
+            // Start of mouse reporting sequence \x1b[M
+            if (ch == 'M') { esc = esc_got_M; continue; }
             // Start of modifier sequence \x1b[1
             if (ch == '1') { esc = esc_got_1; continue; }
             esc = esc_none; continue;
@@ -188,6 +238,31 @@ enum result input_update(struct global* global) {
                 case 'D': pgb_move_left(&global->text);  continue;
                 default:  continue;
             }
+        }
+        if (esc == esc_got_M) {
+            mouse_btn_byte = ch;
+            esc = esc_got_M_btn;
+            continue;
+        }
+        if (esc == esc_got_M_btn) {
+            mouse_x_byte = ch;
+            esc = esc_got_M_x;
+            continue;
+        }
+        if (esc == esc_got_M_x) {
+            unsigned char mouse_y_byte = ch;
+            esc = esc_none;
+            
+            // X10 reporting coordinates are 1-based and offset by 32
+            int btn = mouse_btn_byte - 32;
+            int col = mouse_x_byte - 32;
+            int row = mouse_y_byte - 32;
+            
+            if (btn == 0 && config_get_bool("mouse", 1)) {
+                sel_clear(global);
+                mouse_click_move(global, col, row);
+            }
+            continue;
         }
 
         // ---- Ctrl+Q: quit -------------------------------------------------
