@@ -4,12 +4,14 @@
 #include "input.h"
 #include "draw.h"
 #include "file.h"
+#include "syntax.h"
 #include <string.h>
 #include <unistd.h>
 
 void editor_init(struct global* global, const char* filepath) {
     term_init();
     draw_init();
+    syntax_init();
 
     static char arena_mem[arena_capacity];
     global->arena = arena_init(arena_mem, sizeof(arena_mem));
@@ -39,6 +41,7 @@ void editor_init(struct global* global, const char* filepath) {
 void editor_deinit(struct global* global) {
     (void)global;
     draw_deinit();
+    syntax_deinit();
     term_deinit();
 }
 

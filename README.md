@@ -9,6 +9,7 @@ noxe-editor is considered very efficient for writing everyday code and is friend
 ## Features
 
 - **Fast and efficient**: Built with C for maximum performance
+- **Config System**: full kontrol
 - **Auto-indent**: Automatically preserves indentation when pressing Enter
 - **Undo/Redo**: Full undo/redo support with Ctrl+U and Ctrl+Y
 - **Syntax highlighting**: C syntax highlighting for better code readability

@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define VERSION "0.2.3.1-stable"
+#define VERSION "0.3.0-beta"
+
 
 void print_version() {
     printf("Noxe-Editor version %s\n", VERSION);
