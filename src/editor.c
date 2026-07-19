@@ -32,8 +32,12 @@ void editor_init(struct global* global, const char* filepath) {
     if (filepath) {
         strncpy(global->filepath, filepath, sizeof(global->filepath) - 1);
         global->filepath[sizeof(global->filepath) - 1] = '\0';
-        if (file_read(&global->text, global->filepath, &global->arena) != ok) {
-            pgb_replace_str(&global->msg, "Could not open file.", &global->arena);
+        if (access(global->filepath, F_OK) == 0) {
+            if (file_read(&global->text, global->filepath, &global->arena) != ok) {
+                pgb_replace_str(&global->msg, "Could not open file.", &global->arena);
+            }
+        } else {
+            pgb_replace_str(&global->msg, "New file.", &global->arena);
         }
     }
 }

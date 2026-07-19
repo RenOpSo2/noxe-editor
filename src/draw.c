@@ -80,8 +80,10 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
     }
     
     // Calculate scroll offset to keep cursor visible
-    uint32_t scroll_offset = 0;
-    if (cursor_line >= size_y) {
+    uint32_t scroll_offset = last_scroll_offset;
+    if (cursor_line < scroll_offset) {
+        scroll_offset = cursor_line;
+    } else if (cursor_line >= scroll_offset + size_y) {
         scroll_offset = cursor_line - size_y + 1;
     }
     last_scroll_offset = scroll_offset;
@@ -94,7 +96,6 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
     
     // Helper buffers for tab expansion
     static char expanded_line[buf_capacity * 4]; // Enough for tab expansion
-    static char temp_line_buf[buf_capacity];
     
     // Render lines starting from scroll offset
     uint32_t rendered_line = 0;
@@ -118,22 +119,22 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
                 
                 // Expand tabs first
                 int raw_line_len = pos - line_start;
-                memcpy(temp_line_buf, full_buffer + line_start, raw_line_len);
-                temp_line_buf[raw_line_len] = '\0';
-                
                 int expanded_len = 0;
                 int col = 0;
                 int tab_size = (int)config_get_number("tabsize", 4);
                 for (int i = 0; i < raw_line_len; i++) {
-                    if (temp_line_buf[i] == '\t') {
+                    char ch = full_buffer[line_start + i];
+                    if (ch == '\t') {
                         int num_spaces = tab_size - (col % tab_size);
                         for (int s = 0; s < num_spaces && expanded_len < (int)sizeof(expanded_line) - 1; s++) {
                             expanded_line[expanded_len++] = ' ';
                             col++;
                         }
                     } else {
-                        expanded_line[expanded_len++] = temp_line_buf[i];
-                        col++;
+                        if (expanded_len < (int)sizeof(expanded_line) - 1) {
+                            expanded_line[expanded_len++] = ch;
+                            col++;
+                        }
                     }
                 }
                 expanded_line[expanded_len] = '\0';
@@ -182,22 +183,22 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
         
         // Expand tabs first
         int raw_line_len = pos - line_start;
-        memcpy(temp_line_buf, full_buffer + line_start, raw_line_len);
-        temp_line_buf[raw_line_len] = '\0';
-        
         int expanded_len = 0;
         int col = 0;
         int tab_size = (int)config_get_number("tabsize", 4);
         for (int i = 0; i < raw_line_len; i++) {
-            if (temp_line_buf[i] == '\t') {
+            char ch = full_buffer[line_start + i];
+            if (ch == '\t') {
                 int num_spaces = tab_size - (col % tab_size);
                 for (int s = 0; s < num_spaces && expanded_len < (int)sizeof(expanded_line) - 1; s++) {
                     expanded_line[expanded_len++] = ' ';
                     col++;
                 }
             } else {
-                expanded_line[expanded_len++] = temp_line_buf[i];
-                col++;
+                if (expanded_len < (int)sizeof(expanded_line) - 1) {
+                    expanded_line[expanded_len++] = ch;
+                    col++;
+                }
             }
         }
         expanded_line[expanded_len] = '\0';

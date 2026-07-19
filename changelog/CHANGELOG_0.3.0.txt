@@ -18,14 +18,29 @@ Files Modified / Created
 -----------------------
 - src/config.h - Config header declaring APIs
 - src/config.c - Implementation of JSON parser, validator, CLI overrides, and file watcher
-- src/draw.c - Render engine update to support dynamic tabsize mapping and conditional line numbers
-- src/input.c - Input handler update to toggle auto indentation on Enter keypress
-- src/main.c - Initialization of configuration and active loop watcher
+- src/draw.c - Render engine update to support dynamic tabsize mapping, conditional line numbers, and normal viewport scrolling (fixed lock-to-bottom scroll bug)
+- src/input.c - Input handler update to support dynamic auto-indentation and undo tracing
+- src/nodes.c - Fixed 4KB page split insertion bug, cross-page backspace deletion bug, search memory leaks, and search-previous wrapping/index 0 bugs
+- src/editor.c - Graceful "New file." startup message instead of a warning error
 - api/api.md - Documentation of configuration APIs in Indonesian
 - test_config.c - Unit test suite to verify configuration behaviour
+- test_0.2.0.c - Updated search tests to cover search_prev wrapping and multiple match behaviors
 - Makefile - Build targets updated to support config testing
+
+Bug Fixes
+---------
+- **Fixed Critical 4KB File Insertion Limit**: Corrected the page-splitting logic in `nodes.c` so the editor does not drop characters after reaching the 4,096 character threshold.
+- **Fixed Search Memory Leaks**: Replaced dynamic `arena_alloc` calls in search functions with stack buffers, preventing memory exhaustion crashes.
+- **Fixed Search-Previous Navigation**: Corrected wrapping behaviour, resolved the index-0 match detection bug, and stopped the cursor from pinning to the first match.
+- **Fixed Viewport Scrolling Lock**: Changed the scroll calculations in `draw.c` so the viewport scrolls naturally when the cursor reaches viewport boundaries, rather than locking the cursor to the bottom line of the screen.
+- **Fixed Cross-Page Deletion**: Aligned the gap buffer boundary correctly when backspacing across page boundaries so the last character of the previous page is deleted instead of random characters in the middle.
+- **Fixed New File Handling**: Corrected startup checks so opening a non-existent file path prints a clean "New file." status bar message rather than a path canonicalization warning.
+- **Fixed Auto-Indentation Formatting**: Replaced the cursor-based whitespace counting with a clean buffer scan that correctly preserves tabs and spaces from the previous line and pushes those insertions to the undo stack.
+- **Resolved Stack Buffer Overflow Risk**: Eliminated the temporary stack buffer copy in tab-expansion code in `draw.c` to prevent overflows when rendering long lines.
 
 Testing
 -------
 - Executed unit tests in `test_config.c` validating default fallback values, command-line arguments parsing, file writing, validation, and JSON tokenizing.
 - Verified test suite passes successfully.
+- Added test coverage in `test_0.2.0.c` validating that `search_prev` navigates multiple matches correctly, handles wrap-around, and matches at index 0.
+

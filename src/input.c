@@ -81,37 +81,43 @@ static void mouse_click_move(struct global* global, uint32_t screen_col, uint32_
 // Auto-indent helper
 // ---------------------------------------------------------------------------
 static void auto_indent(struct global* g) {
-    // Count leading whitespace on current line
-    uint32_t indent = 0;
-    struct page* p = g->text.active_page;
+    uint32_t cursor = pgb_cursor_pos(&g->text);
+    if (cursor < 2) return; // Need at least the newline and one character before it
     
-    // Move to start of current line
-    while (1) {
-        if (p->gap_start == 0 && !p->prev) break;
-        pgb_move_left(&g->text);
-        p = g->text.active_page;
-        if (p->data[p->gap_start] == '\n') {
-            pgb_move_right(&g->text);
-            break;
-        }
+    char buf[buf_capacity];
+    pgb_to_str(buf, sizeof(buf), &g->text);
+    
+    // The newly inserted newline is at cursor - 1
+    uint32_t total_size = strlen(buf);
+    if (cursor - 1 >= total_size || buf[cursor - 1] != '\n') {
+        return;
     }
     
-    // Count leading whitespace
-    while (1) {
-        p = g->text.active_page;
-        if (p->gap_start == 0 && !p->prev) break;
-        char ch = p->data[p->gap_start];
+    // Walk backwards from cursor - 2 to find start of the previous line
+    int prev_line_start = (int)cursor - 2;
+    while (prev_line_start > 0 && buf[prev_line_start - 1] != '\n') {
+        prev_line_start--;
+    }
+    
+    // Now count and collect the leading whitespace of that previous line
+    char indent_str[256];
+    uint32_t indent_len = 0;
+    int i = prev_line_start;
+    while (i < (int)cursor - 1 && indent_len < sizeof(indent_str) - 1) {
+        char ch = buf[i];
         if (ch == ' ' || ch == '\t') {
-            indent++;
-            pgb_move_right(&g->text);
+            indent_str[indent_len++] = ch;
+            i++;
         } else {
             break;
         }
     }
+    indent_str[indent_len] = '\0';
     
-    // Insert the same indentation on new line
-    for (uint32_t i = 0; i < indent; i++) {
-        pgb_insert(&g->text, ' ', &g->arena);
+    // Insert the indentation at the current cursor position
+    for (uint32_t j = 0; j < indent_len; j++) {
+        pgb_insert(&g->text, indent_str[j], &g->arena);
+        undo_save_insert(g, indent_str[j], cursor + j);
     }
 }
 

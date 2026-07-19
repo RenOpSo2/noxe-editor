@@ -106,9 +106,21 @@ void test_search_prev() {
     search_next(&g);
     assert(g.search_pos == 4);
     
-    // Go back to first match
+    // Move to third match (position 8)
+    search_next(&g);
+    assert(g.search_pos == 8);
+    
+    // Go back to second match (position 4)
+    search_prev(&g);
+    assert(g.search_pos == 4);
+    
+    // Go back to first match (position 0)
     search_prev(&g);
     assert(g.search_pos == 0);
+    
+    // Wrap around to third match (position 8)
+    search_prev(&g);
+    assert(g.search_pos == 8);
     
     printf("  ✓ Search previous works correctly\n");
 }
