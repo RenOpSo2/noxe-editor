@@ -92,6 +92,10 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
         language = syntax_get_language(filepath);
     }
     
+    // Helper buffers for tab expansion
+    static char expanded_line[buf_capacity * 4]; // Enough for tab expansion
+    static char temp_line_buf[buf_capacity];
+    
     // Render lines starting from scroll offset
     uint32_t rendered_line = 0;
     uint32_t buffer_line = 0;
@@ -112,37 +116,46 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
                     RB_ESC("\x1b[0m\x1b[39;49m");
                 }
                 
+                // Expand tabs first
+                int raw_line_len = pos - line_start;
+                memcpy(temp_line_buf, full_buffer + line_start, raw_line_len);
+                temp_line_buf[raw_line_len] = '\0';
+                
+                int expanded_len = 0;
+                int col = 0;
+                int tab_size = (int)config_get_number("tabsize", 4);
+                for (int i = 0; i < raw_line_len; i++) {
+                    if (temp_line_buf[i] == '\t') {
+                        int num_spaces = tab_size - (col % tab_size);
+                        for (int s = 0; s < num_spaces && expanded_len < (int)sizeof(expanded_line) - 1; s++) {
+                            expanded_line[expanded_len++] = ' ';
+                            col++;
+                        }
+                    } else {
+                        expanded_line[expanded_len++] = temp_line_buf[i];
+                        col++;
+                    }
+                }
+                expanded_line[expanded_len] = '\0';
+                
                 // Apply syntax highlighting if enabled
                 if (language == 1) {
                     // C/C++
-                    char* highlighted = syntax_highlight_line(full_buffer + line_start, pos - line_start);
+                    char* highlighted = syntax_highlight_line(expanded_line, expanded_len);
                     if (highlighted) {
                         rb_append(&rb, highlighted, strlen(highlighted));
                         free(highlighted);
                     }
                 } else if (language == 2) {
                     // Python
-                    char* highlighted = syntax_highlight_python_line(full_buffer + line_start, pos - line_start);
+                    char* highlighted = syntax_highlight_python_line(expanded_line, expanded_len);
                     if (highlighted) {
                         rb_append(&rb, highlighted, strlen(highlighted));
                         free(highlighted);
                     }
                 } else {
-                    // No highlighting - just output plain text with tab expansion
-                    uint32_t col = 0;
-                    for (uint32_t j = line_start; j < pos; j++) {
-                        if (full_buffer[j] == '\t') {
-                            int tab_size = (int)config_get_number("tabsize", 4);
-                            int num_spaces = tab_size - (col % tab_size);
-                            for (int s = 0; s < num_spaces; s++) {
-                                rb_append(&rb, " ", 1);
-                                col++;
-                            }
-                        } else {
-                            rb_append(&rb, &full_buffer[j], 1);
-                            col++;
-                        }
-                    }
+                    // No highlighting - just output expanded text
+                    rb_append(&rb, expanded_line, expanded_len);
                 }
                 
                 RB_ESC("\x1b[K\r\n");
@@ -167,37 +180,46 @@ static void draw_text(struct paged_gap_buffer* pgb, uint32_t size_y, const char*
             RB_ESC("\x1b[0m\x1b[39;49m");
         }
         
+        // Expand tabs first
+        int raw_line_len = pos - line_start;
+        memcpy(temp_line_buf, full_buffer + line_start, raw_line_len);
+        temp_line_buf[raw_line_len] = '\0';
+        
+        int expanded_len = 0;
+        int col = 0;
+        int tab_size = (int)config_get_number("tabsize", 4);
+        for (int i = 0; i < raw_line_len; i++) {
+            if (temp_line_buf[i] == '\t') {
+                int num_spaces = tab_size - (col % tab_size);
+                for (int s = 0; s < num_spaces && expanded_len < (int)sizeof(expanded_line) - 1; s++) {
+                    expanded_line[expanded_len++] = ' ';
+                    col++;
+                }
+            } else {
+                expanded_line[expanded_len++] = temp_line_buf[i];
+                col++;
+            }
+        }
+        expanded_line[expanded_len] = '\0';
+        
         // Apply syntax highlighting if enabled
         if (language == 1) {
             // C/C++
-            char* highlighted = syntax_highlight_line(full_buffer + line_start, pos - line_start);
+            char* highlighted = syntax_highlight_line(expanded_line, expanded_len);
             if (highlighted) {
                 rb_append(&rb, highlighted, strlen(highlighted));
                 free(highlighted);
             }
         } else if (language == 2) {
             // Python
-            char* highlighted = syntax_highlight_python_line(full_buffer + line_start, pos - line_start);
+            char* highlighted = syntax_highlight_python_line(expanded_line, expanded_len);
             if (highlighted) {
                 rb_append(&rb, highlighted, strlen(highlighted));
                 free(highlighted);
             }
         } else {
-            // No highlighting - just output plain text with tab expansion
-            uint32_t col = 0;
-            for (uint32_t j = line_start; j < pos; j++) {
-                if (full_buffer[j] == '\t') {
-                    int tab_size = (int)config_get_number("tabsize", 4);
-                    int num_spaces = tab_size - (col % tab_size);
-                    for (int s = 0; s < num_spaces; s++) {
-                        rb_append(&rb, " ", 1);
-                        col++;
-                    }
-                } else {
-                    rb_append(&rb, &full_buffer[j], 1);
-                    col++;
-                }
-            }
+            // No highlighting - just output expanded text
+            rb_append(&rb, expanded_line, expanded_len);
         }
         
         RB_ESC("\x1b[K\r\n");
