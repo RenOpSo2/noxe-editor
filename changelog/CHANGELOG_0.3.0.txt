@@ -13,6 +13,7 @@ New Features
 - **Command Line Overrides**: Config options can be overridden dynamically at startup using flags like `--tabsize 8` or `--mouse false` or `--show_line_numbers false`.
 - **Live Watch & Auto-Reload**: A filesystem checker is built-in. If the configuration file is updated externally while the editor is running, it automatically detects changes, re-parses settings, and flashes a notification on the status bar.
 - **Data Validation**: Schema-checking enforces positive number limits on `tabsize` and strict boolean formats on `mouse`, `show_line_numbers`, and `auto_indent` to prevent bad config files from breaking the UI.
+- **Syntax Highlight**: Add syntax highlighting for multiple languages like C, C++, Python using regex and nice classic colors
 
 Files Modified / Created
 -----------------------
